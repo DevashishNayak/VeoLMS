@@ -3,8 +3,10 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Direct (non-pooled) URL for migrations — set DIRECT_URL locally / DATABASE_URL_UNPOOLED on Vercel
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {

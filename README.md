@@ -85,12 +85,12 @@ GitHub: https://github.com/DevashishNayak/VeoLMS
 
 **Trade-off:** YouTube embeds instead of self-hosted HLS saves storage and CDN costs but means videos are accessible via YouTube directly. For a portfolio LMS this is the right cost/feature balance.
 
-## Local Development
+## Database environments
 
-### Prerequisites
+Local, staging/preview, and production use **separate Postgres databases**.
 
-- Node.js 20+
-- PostgreSQL (or `npx prisma dev` for local Postgres)
+See [docs/DATABASE.md](docs/DATABASE.md) for Neon branches and how to add stage/prod later.
+
 
 ### Setup
 
