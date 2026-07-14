@@ -1,21 +1,10 @@
-# Database — 2 Neon branches (matches Vercel)
+# Database
 
-Vercel has **Production** and **Preview** only → Neon keeps **two** branches:
+Two Neon branches (matches Vercel Production + Preview):
 
-| Vercel | Neon | Purpose |
-|--------|------|---------|
-| **Production** | `main` | Live site |
-| **Preview** (+ local) | `dev` | Testers Preview URLs + `npm run dev` |
+| Neon | Vercel | Used by |
+|------|--------|---------|
+| `main` | Production | https://veo-lms.vercel.app |
+| `dev` | Preview | Preview URLs + local `npm run dev` |
 
-```
-Production  →  Neon main
-Preview     →  Neon dev
-Local       →  Neon dev
-```
-
-Extra Neon branches (`preview`, `development`, `staging`) are leftovers — ignore them in the console; only **`main`** and **`dev`** are used.
-
-## Safety
-
-- Never point local `.env` at Neon `main` for daily coding  
-- Never seed Neon `main` unless shipping intentionally  
+No other Neon branches are used.
