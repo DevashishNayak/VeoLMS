@@ -4,7 +4,10 @@ A production-like LMS built for the **VeoLMS Core Team Selection Challenge**. Br
 
 ## Live Demo
 
-> Deploy to Vercel + Neon PostgreSQL (see [Deployment](#deployment)) and add your URL here.
+**https://veo-lms.vercel.app**
+
+GitHub: https://github.com/DevashishNayak/VeoLMS
+
 
 ## Demo Credentials
 

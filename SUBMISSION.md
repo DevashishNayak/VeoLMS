@@ -7,11 +7,11 @@
 
 ## 1. Live Application URL
 
-https://your-app.vercel.app
+https://veo-lms.vercel.app
 
 ## 2. GitHub Repository
 
-https://github.com/yourusername/veo-lms
+https://github.com/DevashishNayak/VeoLMS
 
 ## 3. Admin Credentials
 
