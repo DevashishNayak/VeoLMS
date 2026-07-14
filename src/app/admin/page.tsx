@@ -38,6 +38,8 @@ export default function AdminPage() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const [courseForm, setCourseForm] = useState({
     title: "",
@@ -86,44 +88,116 @@ export default function AdminPage() {
 
   async function createCourse(e: React.FormEvent) {
     e.preventDefault();
-    const res = await fetch("/api/admin/courses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(courseForm),
-    });
-    if (res.ok) {
+    setError("");
+    setMessage("");
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/courses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...courseForm,
+          priceInPaise: Number(courseForm.priceInPaise),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? `Failed to create course (${res.status})`);
+        return;
+      }
       setMessage("Course created");
-      setCourseForm({ ...courseForm, title: "", description: "" });
-      loadData();
+      setCourseForm({
+        title: "",
+        description: "",
+        thumbnail: courseForm.thumbnail,
+        priceInPaise: 49900,
+        featured: false,
+      });
+      await loadData();
+    } catch {
+      setError("Network error — could not create course");
+    } finally {
+      setSaving(false);
     }
   }
 
   async function deleteCourse(id: string) {
     if (!confirm("Delete this course?")) return;
-    await fetch(`/api/admin/courses/${id}`, { method: "DELETE" });
+    setError("");
+    const res = await fetch(`/api/admin/courses/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "Failed to delete course");
+      return;
+    }
+    setMessage("Course deleted");
     loadData();
   }
 
   async function createSection(e: React.FormEvent) {
     e.preventDefault();
-    await fetch("/api/admin/sections", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(sectionForm),
-    });
-    setMessage("Section created");
-    loadData();
+    setError("");
+    setMessage("");
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/sections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...sectionForm,
+          order: Number(sectionForm.order),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? `Failed to create section (${res.status})`);
+        return;
+      }
+      setMessage("Section created");
+      setSectionForm({ courseId: sectionForm.courseId, title: "", order: 0 });
+      await loadData();
+    } catch {
+      setError("Network error — could not create section");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function createLesson(e: React.FormEvent) {
     e.preventDefault();
-    await fetch("/api/admin/lessons", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(lessonForm),
-    });
-    setMessage("Lesson created");
-    loadData();
+    setError("");
+    setMessage("");
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/lessons", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...lessonForm,
+          duration: Number(lessonForm.duration),
+          order: Number(lessonForm.order),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? `Failed to create lesson (${res.status})`);
+        return;
+      }
+      setMessage("Lesson created");
+      setLessonForm({
+        sectionId: lessonForm.sectionId,
+        title: "",
+        youtubeId: "",
+        duration: 600,
+        order: 0,
+        isPreview: false,
+      });
+      await loadData();
+    } catch {
+      setError("Network error — could not create lesson");
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (loading) {
@@ -139,6 +213,9 @@ export default function AdminPage() {
       <h1 className="text-3xl font-bold">Admin Dashboard</h1>
       {message && (
         <p className="mt-2 text-sm text-green-600">{message}</p>
+      )}
+      {error && (
+        <p className="mt-2 text-sm text-red-600">{error}</p>
       )}
 
       <div className="mt-6 flex gap-2">
@@ -179,6 +256,8 @@ export default function AdminPage() {
                   <textarea
                     className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-sm"
                     rows={3}
+                    minLength={10}
+                    placeholder="At least 10 characters"
                     value={courseForm.description}
                     onChange={(e) =>
                       setCourseForm({ ...courseForm, description: e.target.value })
@@ -218,7 +297,9 @@ export default function AdminPage() {
                   />
                   Featured
                 </label>
-                <Button type="submit">Create Course</Button>
+                <Button type="submit" disabled={saving}>
+                  {saving ? "Creating..." : "Create Course"}
+                </Button>
               </form>
             </CardContent>
           </Card>
@@ -270,7 +351,9 @@ export default function AdminPage() {
                     }
                   />
                 </div>
-                <Button type="submit">Add Section</Button>
+                <Button type="submit" disabled={saving}>
+                  {saving ? "Saving..." : "Add Section"}
+                </Button>
               </form>
             </CardContent>
           </Card>
@@ -345,7 +428,9 @@ export default function AdminPage() {
                   />
                   Preview lesson (free)
                 </label>
-                <Button type="submit">Add Lesson</Button>
+                <Button type="submit" disabled={saving}>
+                  {saving ? "Saving..." : "Add Lesson"}
+                </Button>
               </form>
             </CardContent>
           </Card>

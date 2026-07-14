@@ -53,7 +53,8 @@ export async function POST(request: Request) {
       },
     });
     return NextResponse.json({ course }, { status: 201 });
-  } catch {
+  } catch (e) {
+    console.error("Create course error:", e);
     return NextResponse.json({ error: "Failed to create course" }, { status: 500 });
   }
 }
