@@ -1,16 +1,15 @@
-import { auth } from "@/lib/auth";
+import NextAuth from "next-auth";
+import { authConfig } from "@/lib/auth.config";
 import { NextResponse } from "next/server";
 
-export default auth((req) => {
+export default NextAuth(authConfig).auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;
   const role = req.auth?.user?.role;
 
-  const protectedRoutes = ["/dashboard", "/learn"];
-  const adminRoutes = ["/admin"];
-
-  const isProtected = protectedRoutes.some((r) => pathname.startsWith(r));
-  const isAdmin = adminRoutes.some((r) => pathname.startsWith(r));
+  const isProtected =
+    pathname.startsWith("/dashboard") || pathname.startsWith("/learn");
+  const isAdmin = pathname.startsWith("/admin");
 
   if (isProtected && !isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
