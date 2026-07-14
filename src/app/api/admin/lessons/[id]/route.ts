@@ -4,9 +4,11 @@ import { lessonSchema } from "@/lib/validations";
 import { forbidden, requireAdminSession } from "@/lib/admin-auth";
 import { z } from "zod";
 
-const updateLessonSchema = lessonSchema.partial().extend({
-  sectionId: z.string().cuid().optional(),
-});
+const updateLessonBody = lessonSchema.and(
+  z.object({
+    sectionId: z.string().cuid().optional(),
+  })
+);
 
 export async function PUT(
   request: Request,
@@ -17,11 +19,8 @@ export async function PUT(
 
   const { id } = await params;
   const body = await request.json();
-  // Prefer full schema when type-bearing payload is sent (admin forms send complete lesson)
-  const full = lessonSchema.safeParse(body);
-  const parsed = full.success
-    ? full
-    : updateLessonSchema.safeParse(body);
+  // Admin forms send a full lesson payload — do not use .partial() on refined schemas (Zod 4).
+  const parsed = updateLessonBody.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? "Invalid data" },
@@ -34,11 +33,16 @@ export async function PUT(
     if (key in data && data[key] === "") data[key] = null;
   }
 
-  const lesson = await prisma.lesson.update({
-    where: { id },
-    data,
-  });
-  return NextResponse.json({ lesson });
+  try {
+    const lesson = await prisma.lesson.update({
+      where: { id },
+      data,
+    });
+    return NextResponse.json({ lesson });
+  } catch (e) {
+    console.error("Update lesson error:", e);
+    return NextResponse.json({ error: "Failed to update lesson" }, { status: 500 });
+  }
 }
 
 export async function DELETE(
