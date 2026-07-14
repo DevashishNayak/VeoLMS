@@ -1,32 +1,30 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { courseSchema } from "@/lib/validations";
 import { slugify } from "@/lib/utils";
 import { pageMeta, parseListQuery } from "@/lib/admin-query";
+import {
+  coursesOwnedWhere,
+  forbidden,
+  requireStaffSession,
+} from "@/lib/admin-auth";
 import type { Prisma } from "@prisma/client";
 
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    return null;
-  }
-  return session;
-}
-
 export async function GET(request: Request) {
-  const session = await requireAdmin();
-  if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const session = await requireStaffSession();
+  if (!session) return forbidden();
 
   try {
     const url = new URL(request.url);
     const { page, pageSize, q, skip } = parseListQuery(url);
-    const published = url.searchParams.get("published"); // all | true | false
-    const featured = url.searchParams.get("featured"); // all | true | false
+    const published = url.searchParams.get("published");
+    const featured = url.searchParams.get("featured");
     const forSelect = url.searchParams.get("forSelect") === "1";
+    const ownership = coursesOwnedWhere(session);
 
     if (forSelect) {
       const courses = await prisma.course.findMany({
+        where: ownership,
         select: { id: true, title: true, slug: true },
         orderBy: { title: "asc" },
         take: 500,
@@ -34,7 +32,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ courses });
     }
 
-    const where: Prisma.CourseWhereInput = {};
+    const where: Prisma.CourseWhereInput = { ...ownership };
     if (q) {
       where.OR = [
         { title: { contains: q, mode: "insensitive" } },
@@ -52,10 +50,9 @@ export async function GET(request: Request) {
       prisma.course.findMany({
         where,
         include: {
-          instructor: { select: { name: true } },
+          instructor: { select: { id: true, name: true, email: true } },
           sections: {
             orderBy: { order: "asc" },
-            // List UI only needs counts — avoid loading full lesson bodies
             include: {
               lessons: { select: { id: true }, orderBy: { order: "asc" } },
             },
@@ -82,8 +79,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const session = await requireAdmin();
-  if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const session = await requireStaffSession();
+  if (!session) return forbidden();
 
   try {
     const body = await request.json();
@@ -99,11 +96,31 @@ export async function POST(request: Request) {
     const existing = await prisma.course.findUnique({ where: { slug } });
     if (existing) slug = `${slug}-${Date.now()}`;
 
+    const { instructorId: requestedInstructor, ...data } = parsed.data;
+    let instructorId = session.user.id;
+    if (session.user.role === "ADMIN" && requestedInstructor) {
+      const instructor = await prisma.user.findFirst({
+        where: {
+          id: requestedInstructor,
+          role: { in: ["ADMIN", "INSTRUCTOR"] },
+        },
+        select: { id: true },
+      });
+      if (!instructor) {
+        return NextResponse.json(
+          { error: "Instructor must be an ADMIN or INSTRUCTOR user" },
+          { status: 400 }
+        );
+      }
+      instructorId = instructor.id;
+    }
+
     const course = await prisma.course.create({
       data: {
-        ...parsed.data,
+        ...data,
         slug,
-        instructorId: session.user.id,
+        instructorId,
+        deliveryType: data.deliveryType ?? "SELF_PACED",
       },
     });
     return NextResponse.json({ course }, { status: 201 });

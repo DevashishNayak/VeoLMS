@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { forbidden, requireAdminSession } from "@/lib/admin-auth";
+import { forbidden, requireStaffSession } from "@/lib/admin-auth";
 import { blobConfigured, uploadToBlob, type UploadKind } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const session = await requireAdminSession();
+  const session = await requireStaffSession();
   if (!session) return forbidden();
   return NextResponse.json({
     uploadsEnabled: blobConfigured(),
@@ -17,7 +17,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await requireAdminSession();
+  const session = await requireStaffSession();
   if (!session) return forbidden();
 
   const form = await request.formData();

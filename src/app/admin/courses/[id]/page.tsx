@@ -81,9 +81,14 @@ export default function AdminCourseDetailPage() {
     priceInPaise: 0,
     featured: false,
     published: true,
+    deliveryType: "SELF_PACED" as "SELF_PACED" | "LIVE" | "OFFLINE",
+    instructorId: "",
     learningOutcomesText: "",
     requirementsText: "",
   });
+  const [staffUsers, setStaffUsers] = useState<
+    { id: string; name: string; email: string; role: string }[]
+  >([]);
 
   const [sectionModal, setSectionModal] = useState<{
     mode: "create" | "edit";
@@ -121,6 +126,8 @@ export default function AdminCourseDetailPage() {
       priceInPaise: c.priceInPaise,
       featured: c.featured,
       published: c.published,
+      deliveryType: c.deliveryType ?? "SELF_PACED",
+      instructorId: c.instructorId ?? c.instructor?.id ?? "",
       learningOutcomesText: (c.learningOutcomes ?? []).join("\n"),
       requirementsText: (c.requirements ?? []).join("\n"),
     });
@@ -137,6 +144,15 @@ export default function AdminCourseDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    // Admin-only instructor picker (403 for instructors is fine).
+    void apiJson<{
+      users: { id: string; name: string; email: string; role: string }[];
+    }>("/api/admin/users?forSelect=1&staff=1").then((res) => {
+      if (res.ok) setStaffUsers(res.data.users);
+    });
+  }, []);
 
   async function saveMeta(e: React.FormEvent) {
     e.preventDefault();
@@ -156,6 +172,10 @@ export default function AdminCourseDetailPage() {
         priceInPaise: Number(meta.priceInPaise),
         featured: meta.featured,
         published: meta.published,
+        deliveryType: meta.deliveryType,
+        ...(staffUsers.length && meta.instructorId
+          ? { instructorId: meta.instructorId }
+          : {}),
         learningOutcomes: meta.learningOutcomesText
           .split("\n")
           .map((s) => s.trim())
@@ -484,7 +504,47 @@ export default function AdminCourseDetailPage() {
                     }
                   />
                 </div>
-                <div className="flex flex-wrap items-end gap-2 pb-1">
+                <div>
+                  <Label>Delivery type</Label>
+                  <select
+                    className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                    value={meta.deliveryType}
+                    onChange={(e) =>
+                      setMeta({
+                        ...meta,
+                        deliveryType: e.target.value as typeof meta.deliveryType,
+                      })
+                    }
+                  >
+                    <option value="SELF_PACED">On-demand (online)</option>
+                    <option value="LIVE">Live sessions</option>
+                    <option value="OFFLINE">In-person / offline</option>
+                  </select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Controls student-facing labels. Paid lessons still need
+                    enrollment; mark individual lessons as Free Preview for
+                    public access.
+                  </p>
+                </div>
+                {staffUsers.length > 0 && (
+                  <div>
+                    <Label>Instructor</Label>
+                    <select
+                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                      value={meta.instructorId}
+                      onChange={(e) =>
+                        setMeta({ ...meta, instructorId: e.target.value })
+                      }
+                    >
+                      {staffUsers.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} ({u.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div className="flex flex-wrap items-end gap-2 pb-1 sm:col-span-2">
                   <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
                     <input
                       type="checkbox"
@@ -912,7 +972,7 @@ export default function AdminCourseDetailPage() {
                 setLessonForm({ ...lessonForm, isPreview: e.target.checked })
               }
             />
-            Free preview
+            Free preview (public API + learn page without enrollment)
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>

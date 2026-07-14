@@ -145,6 +145,18 @@ async function main() {
     },
   });
 
+  const instructorHash = await bcrypt.hash("Teacher@12345", 12);
+  await prisma.user.upsert({
+    where: { email: "teacher@veolms.com" },
+    update: { role: "INSTRUCTOR", passwordHash: instructorHash },
+    create: {
+      email: "teacher@veolms.com",
+      name: "Demo Teacher",
+      passwordHash: instructorHash,
+      role: "INSTRUCTOR",
+    },
+  });
+
   for (const courseData of COURSES) {
     const existing = await prisma.course.findUnique({
       where: { slug: courseData.slug },
@@ -229,10 +241,22 @@ A quick reference for the tags you'll use most.
   const { ensureUdemyStyleCourse } = await import("./ensure-sample-course");
   await ensureUdemyStyleCourse(prisma, admin.id);
 
+  const teacher = await prisma.user.findUnique({
+    where: { email: "teacher@veolms.com" },
+  });
+  if (teacher) {
+    await prisma.course.updateMany({
+      where: { slug: "css-crash-course" },
+      data: { instructorId: teacher.id },
+    });
+  }
+
   console.log("Seed completed:");
   console.log("  Admin: admin@veolms.com / Admin@12345");
+  console.log("  Instructor: teacher@veolms.com / Teacher@12345");
   console.log("  Student: student@veolms.com / Student@12345");
   console.log("  Sample LMS course: /courses/web-dev-bootcamp");
+  console.log("  Teacher-owned course: /courses/css-crash-course");
 }
 
 main()

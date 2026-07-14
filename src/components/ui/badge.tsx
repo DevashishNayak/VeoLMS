@@ -19,6 +19,7 @@ export function Badge({
     | "outline"
     | "featured"
     | "admin"
+    | "instructor"
     | "student";
 }) {
   return (
@@ -45,6 +46,8 @@ export function Badge({
         /* Roles — fixed width so ADMIN / STUDENT align */
         variant === "admin" &&
           "min-w-[5.25rem] bg-sky-100 text-sky-800 ring-1 ring-inset ring-sky-200",
+        variant === "instructor" &&
+          "min-w-[5.25rem] bg-teal-100 text-teal-800 ring-1 ring-inset ring-teal-200",
         variant === "student" &&
           "min-w-[5.25rem] bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200",
         className

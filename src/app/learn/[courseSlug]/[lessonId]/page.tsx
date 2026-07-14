@@ -15,17 +15,30 @@ interface PageProps {
 export default async function LearnPage({ params }: PageProps) {
   const { courseSlug, lessonId } = await params;
   const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  const userId = session?.user?.id;
 
+  // Curriculum metadata only — never load other lessons' media into the RSC tree.
   const course = await prisma.course.findUnique({
-    where: { slug: courseSlug },
-    include: {
+    where: { slug: courseSlug, published: true },
+    select: {
+      id: true,
+      title: true,
+      slug: true,
       sections: {
         orderBy: { order: "asc" },
-        include: {
+        select: {
+          id: true,
+          title: true,
           lessons: {
             orderBy: { order: "asc" },
-            include: { resources: { orderBy: { order: "asc" } } },
+            select: {
+              id: true,
+              title: true,
+              type: true,
+              duration: true,
+              isPreview: true,
+              order: true,
+            },
           },
         },
       },
@@ -33,15 +46,26 @@ export default async function LearnPage({ params }: PageProps) {
   });
   if (!course) notFound();
 
-  const lesson = course.sections
-    .flatMap((s) => s.lessons)
-    .find((l) => l.id === lessonId);
+  const allLessons = course.sections.flatMap((s) => s.lessons);
+  const lessonMeta = allLessons.find((l) => l.id === lessonId);
+  if (!lessonMeta) notFound();
+
+  const allowed = await canAccessLesson(userId, lessonId);
+  if (!allowed) {
+    if (!userId) {
+      redirect(
+        `/login?callbackUrl=${encodeURIComponent(`/learn/${courseSlug}/${lessonId}`)}`
+      );
+    }
+    redirect(`/courses/${courseSlug}`);
+  }
+
+  const lesson = await prisma.lesson.findUnique({
+    where: { id: lessonId },
+    include: { resources: { orderBy: { order: "asc" } } },
+  });
   if (!lesson) notFound();
 
-  const allowed = await canAccessLesson(session.user.id, lessonId);
-  if (!allowed) redirect(`/courses/${courseSlug}`);
-
-  const allLessons = course.sections.flatMap((s) => s.lessons);
   const currentIdx = allLessons.findIndex((l) => l.id === lessonId);
   const prevLesson = currentIdx > 0 ? allLessons[currentIdx - 1] : null;
   const nextLesson =
@@ -49,32 +73,36 @@ export default async function LearnPage({ params }: PageProps) {
       ? allLessons[currentIdx + 1]
       : null;
 
-  const [progress, allProgress, courseProgress] = await Promise.all([
-    prisma.lessonProgress.findUnique({
-      where: {
-        userId_lessonId: { userId: session.user.id, lessonId },
-      },
-    }),
-    prisma.lessonProgress.findMany({
-      where: {
-        userId: session.user.id,
-        lessonId: { in: allLessons.map((l) => l.id) },
-        completed: true,
-      },
-      select: { lessonId: true },
-    }),
-    getCourseProgress(session.user.id, course.id),
-  ]);
-
-  const completedIds = allProgress.map((p) => p.lessonId);
-
   const accessFlags = await Promise.all(
     allLessons.map(async (l) => ({
       id: l.id,
-      allowed: await canAccessLesson(session.user.id!, l.id),
+      allowed: await canAccessLesson(userId, l.id),
     }))
   );
   const accessibleIds = accessFlags.filter((x) => x.allowed).map((x) => x.id);
+
+  let progress = null;
+  let completedIds: string[] = [];
+  let courseProgress = 0;
+  if (userId) {
+    const [progressRow, completedRows, pct] = await Promise.all([
+      prisma.lessonProgress.findUnique({
+        where: { userId_lessonId: { userId, lessonId } },
+      }),
+      prisma.lessonProgress.findMany({
+        where: {
+          userId,
+          lessonId: { in: allLessons.map((l) => l.id) },
+          completed: true,
+        },
+        select: { lessonId: true },
+      }),
+      getCourseProgress(userId, course.id),
+    ]);
+    progress = progressRow;
+    completedIds = completedRows.map((p) => p.lessonId);
+    courseProgress = pct;
+  }
 
   const sectionTitle =
     course.sections.find((s) => s.lessons.some((l) => l.id === lessonId))
@@ -128,7 +156,9 @@ export default async function LearnPage({ params }: PageProps) {
                 variant="outline"
                 size="sm"
                 disabled={!prevLesson || !accessibleIds.includes(prevLesson.id)}
-                asChild={Boolean(prevLesson && accessibleIds.includes(prevLesson.id))}
+                asChild={Boolean(
+                  prevLesson && accessibleIds.includes(prevLesson.id)
+                )}
               >
                 {prevLesson && accessibleIds.includes(prevLesson.id) ? (
                   <Link href={`/learn/${courseSlug}/${prevLesson.id}`}>
@@ -145,7 +175,9 @@ export default async function LearnPage({ params }: PageProps) {
               <Button
                 size="sm"
                 disabled={!nextLesson || !accessibleIds.includes(nextLesson.id)}
-                asChild={Boolean(nextLesson && accessibleIds.includes(nextLesson.id))}
+                asChild={Boolean(
+                  nextLesson && accessibleIds.includes(nextLesson.id)
+                )}
               >
                 {nextLesson && accessibleIds.includes(nextLesson.id) ? (
                   <Link href={`/learn/${courseSlug}/${nextLesson.id}`}>

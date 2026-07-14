@@ -11,6 +11,7 @@ datasource db {
 
 enum Role {
   STUDENT
+  INSTRUCTOR
   ADMIN
 }
 
@@ -18,6 +19,16 @@ enum PaymentStatus {
   PENDING
   COMPLETED
   FAILED
+}
+
+/// How the course is delivered (drives student-facing labels & expectations).
+enum CourseDeliveryType {
+  /// Watch anytime — classic online / Udemy-style
+  SELF_PACED
+  /// Scheduled live sessions (Zoom / cohort)
+  LIVE
+  /// In-person / classroom
+  OFFLINE
 }
 
 /// Lesson primary content kind (VIDEO can be YouTube and/or self-hosted URL).
@@ -52,18 +63,21 @@ model Course {
   /// Bullet list shown as “Requirements”
   requirements     String[]     @default([])
   priceInPaise     Int
-  featured         Boolean      @default(false)
-  published        Boolean      @default(true)
+  featured         Boolean            @default(false)
+  published        Boolean            @default(true)
+  deliveryType     CourseDeliveryType @default(SELF_PACED)
   instructorId     String
-  instructor       User         @relation("InstructorCourses", fields: [instructorId], references: [id])
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  instructor       User               @relation("InstructorCourses", fields: [instructorId], references: [id])
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
   sections         Section[]
   enrollments      Enrollment[]
   payments         Payment[]
 
   @@index([slug])
   @@index([featured])
+  @@index([instructorId])
+  @@index([deliveryType])
 }
 
 model Section {

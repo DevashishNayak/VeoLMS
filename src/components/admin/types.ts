@@ -33,8 +33,10 @@ export type AdminCourse = {
   priceInPaise: number;
   featured: boolean;
   published: boolean;
+  deliveryType?: "SELF_PACED" | "LIVE" | "OFFLINE";
   createdAt?: string;
-  instructor?: { name: string; email?: string };
+  instructorId?: string;
+  instructor?: { id?: string; name: string; email?: string };
   sections: AdminSection[];
   _count: { enrollments: number };
 };

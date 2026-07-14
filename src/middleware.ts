@@ -7,18 +7,30 @@ export default NextAuth(authConfig).auth((req) => {
   const isLoggedIn = !!req.auth;
   const role = req.auth?.user?.role;
 
-  const isProtected =
-    pathname.startsWith("/dashboard") || pathname.startsWith("/learn");
-  const isAdmin = pathname.startsWith("/admin");
-
-  if (isProtected && !isLoggedIn) {
+  // Dashboard always requires login. /learn is gated in the page/API
+  // so Preview lectures can work without an account.
+  if (pathname.startsWith("/dashboard") && !isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (isAdmin && (!isLoggedIn || role !== "ADMIN")) {
-    return NextResponse.redirect(new URL("/", req.nextUrl.origin));
+  if (pathname.startsWith("/admin")) {
+    const staff = role === "ADMIN" || role === "INSTRUCTOR";
+    if (!isLoggedIn || !staff) {
+      return NextResponse.redirect(new URL("/", req.nextUrl.origin));
+    }
+    // Instructors only get course-curriculum routes (not user/billing admin).
+    if (role === "INSTRUCTOR") {
+      const allowed =
+        pathname === "/admin" ||
+        pathname.startsWith("/admin/courses") ||
+        pathname.startsWith("/admin/sections") ||
+        pathname.startsWith("/admin/lessons");
+      if (!allowed) {
+        return NextResponse.redirect(new URL("/admin/courses", req.nextUrl.origin));
+      }
+    }
   }
 
   return NextResponse.next();

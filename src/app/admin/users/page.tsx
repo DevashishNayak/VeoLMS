@@ -43,7 +43,7 @@ type UserRow = {
   id: string;
   name: string;
   email: string;
-  role: "STUDENT" | "ADMIN";
+  role: "STUDENT" | "INSTRUCTOR" | "ADMIN";
   createdAt: string;
   _count: {
     enrollments: number;
@@ -83,7 +83,7 @@ function AdminUsersPageInner() {
     name: "",
     email: "",
     password: "",
-    role: "STUDENT" as "STUDENT" | "ADMIN",
+    role: "STUDENT" as "STUDENT" | "INSTRUCTOR" | "ADMIN",
   });
   const {
     page,
@@ -213,6 +213,7 @@ function AdminUsersPageInner() {
           >
             <option value="all">All roles</option>
             <option value="STUDENT">Student</option>
+            <option value="INSTRUCTOR">Instructor</option>
             <option value="ADMIN">Admin</option>
           </Select>
         </div>
@@ -269,7 +270,15 @@ function AdminUsersPageInner() {
                     />
                   </TableCell>
                   <TableCell className="align-middle">
-                    <Badge variant={u.role === "ADMIN" ? "admin" : "student"}>
+                    <Badge
+                      variant={
+                        u.role === "ADMIN"
+                          ? "admin"
+                          : u.role === "INSTRUCTOR"
+                            ? "instructor"
+                            : "student"
+                      }
+                    >
                       {u.role}
                     </Badge>
                   </TableCell>
@@ -337,11 +346,12 @@ function AdminUsersPageInner() {
               onChange={(e) =>
                 setForm({
                   ...form,
-                  role: e.target.value as "STUDENT" | "ADMIN",
+                  role: e.target.value as "STUDENT" | "INSTRUCTOR" | "ADMIN",
                 })
               }
             >
               <option value="STUDENT">STUDENT</option>
+              <option value="INSTRUCTOR">INSTRUCTOR</option>
               <option value="ADMIN">ADMIN</option>
             </Select>
           </div>

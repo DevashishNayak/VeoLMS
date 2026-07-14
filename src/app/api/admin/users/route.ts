@@ -10,14 +10,14 @@ const createUserSchema = z.object({
   name: z.string().min(2).max(100),
   email: z.string().email(),
   password: z.string().min(8).max(128),
-  role: z.enum(["STUDENT", "ADMIN"]).default("STUDENT"),
+  role: z.enum(["STUDENT", "INSTRUCTOR", "ADMIN"]).default("STUDENT"),
 });
 
 const updateUserSchema = z.object({
   name: z.string().min(2).max(100).optional(),
   email: z.string().email().optional(),
   password: z.string().min(8).max(128).optional(),
-  role: z.enum(["STUDENT", "ADMIN"]).optional(),
+  role: z.enum(["STUDENT", "INSTRUCTOR", "ADMIN"]).optional(),
 });
 
 export async function GET(request: Request) {
@@ -31,8 +31,15 @@ export async function GET(request: Request) {
 
   if (forSelect) {
     const roleFilter = url.searchParams.get("role");
+    const staffOnly = url.searchParams.get("staff") === "1";
     const users = await prisma.user.findMany({
-      where: roleFilter === "STUDENT" || roleFilter === "ADMIN" ? { role: roleFilter } : undefined,
+      where: staffOnly
+        ? { role: { in: ["ADMIN", "INSTRUCTOR"] } }
+        : roleFilter === "STUDENT" ||
+            roleFilter === "ADMIN" ||
+            roleFilter === "INSTRUCTOR"
+          ? { role: roleFilter }
+          : undefined,
       select: { id: true, name: true, email: true, role: true },
       orderBy: { name: "asc" },
       take: 500,
@@ -47,7 +54,9 @@ export async function GET(request: Request) {
       { email: { contains: q, mode: "insensitive" } },
     ];
   }
-  if (role === "STUDENT" || role === "ADMIN") where.role = role;
+  if (role === "STUDENT" || role === "ADMIN" || role === "INSTRUCTOR") {
+    where.role = role;
+  }
 
   const [total, users] = await Promise.all([
     prisma.user.count({ where }),
@@ -141,7 +150,7 @@ export async function PUT(request: Request) {
   const data: {
     name?: string;
     email?: string;
-    role?: "STUDENT" | "ADMIN";
+    role?: "STUDENT" | "INSTRUCTOR" | "ADMIN";
     passwordHash?: string;
   } = {};
 

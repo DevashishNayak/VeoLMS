@@ -34,9 +34,12 @@ export async function Header() {
 
           {session?.user ? (
             <>
-              {session.user.role === "ADMIN" && (
+              {(session.user.role === "ADMIN" ||
+                session.user.role === "INSTRUCTOR") && (
                 <Button variant="ghost" size="sm" asChild>
-                  <Link href="/admin">Admin</Link>
+                  <Link href="/admin">
+                    {session.user.role === "ADMIN" ? "Admin" : "Teaching"}
+                  </Link>
                 </Button>
               )}
               <Button variant="ghost" size="sm" asChild>

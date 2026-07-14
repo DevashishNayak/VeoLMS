@@ -7,17 +7,44 @@ export async function isEnrolled(userId: string, courseId: string) {
   return !!enrollment;
 }
 
+/**
+ * Preview lessons (`isPreview`) are free for anyone (even anonymous).
+ * Paid lessons require an enrollment for that course.
+ * Admins / course instructors may always access for QA.
+ */
 export async function canAccessLesson(
   userId: string | undefined,
   lessonId: string
 ): Promise<boolean> {
   const lesson = await prisma.lesson.findUnique({
     where: { id: lessonId },
-    include: { section: { select: { courseId: true } } },
+    include: {
+      section: {
+        select: {
+          courseId: true,
+          course: { select: { instructorId: true } },
+        },
+      },
+    },
   });
   if (!lesson) return false;
   if (lesson.isPreview) return true;
+
   if (!userId) return false;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+  if (!user) return false;
+  if (user.role === "ADMIN") return true;
+  if (
+    user.role === "INSTRUCTOR" &&
+    lesson.section.course.instructorId === userId
+  ) {
+    return true;
+  }
+
   return isEnrolled(userId, lesson.section.courseId);
 }
 

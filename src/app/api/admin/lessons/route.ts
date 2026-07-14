@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { lessonSchema } from "@/lib/validations";
-import { forbidden, requireAdminSession } from "@/lib/admin-auth";
+import {
+  assertCanManageSection,
+  coursesOwnedWhere,
+  forbidden,
+  requireStaffSession,
+} from "@/lib/admin-auth";
 import { pageMeta, parseListQuery } from "@/lib/admin-query";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
@@ -11,7 +16,7 @@ const createLessonSchema = lessonSchema.and(
 );
 
 export async function GET(request: Request) {
-  const session = await requireAdminSession();
+  const session = await requireStaffSession();
   if (!session) return forbidden();
 
   const url = new URL(request.url);
@@ -19,9 +24,11 @@ export async function GET(request: Request) {
   const courseId = url.searchParams.get("courseId") || undefined;
   const preview = url.searchParams.get("preview");
   const forSelect = url.searchParams.get("forSelect") === "1";
+  const owned = coursesOwnedWhere(session);
 
   if (forSelect) {
     const lessons = await prisma.lesson.findMany({
+      where: { section: { course: owned } },
       include: {
         section: {
           select: {
@@ -36,8 +43,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ lessons });
   }
 
-  const where: Prisma.LessonWhereInput = {};
-  if (courseId) where.section = { courseId };
+  const where: Prisma.LessonWhereInput = { section: { course: owned } };
+  if (courseId) where.section = { courseId, course: owned };
   if (preview === "true") where.isPreview = true;
   if (preview === "false") where.isPreview = false;
   if (q) {
@@ -77,7 +84,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const session = await requireAdminSession();
+  const session = await requireStaffSession();
   if (!session) return forbidden();
 
   const body = await request.json();
@@ -103,6 +110,8 @@ export async function POST(request: Request) {
     isPreview,
     resources,
   } = parsed.data;
+
+  if (!(await assertCanManageSection(session, sectionId)).ok) return forbidden();
 
   const nextOrder =
     order ??

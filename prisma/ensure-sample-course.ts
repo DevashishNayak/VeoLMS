@@ -33,6 +33,7 @@ export async function ensureUdemyStyleCourse(
       priceInPaise: 99900,
       featured: true,
       published: true,
+      deliveryType: "SELF_PACED",
       instructorId,
       learningOutcomes: [
         "Build multipage HTML structures with semantic tags",

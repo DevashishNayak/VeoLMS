@@ -37,6 +37,9 @@ export const courseSchema = z.object({
   priceInPaise: z.coerce.number().int().min(0).max(100000000),
   featured: z.boolean().optional(),
   published: z.boolean().optional(),
+  deliveryType: z.enum(["SELF_PACED", "LIVE", "OFFLINE"]).optional(),
+  /** ADMIN may reassign; instructors ignore this. */
+  instructorId: z.string().cuid().optional(),
   learningOutcomes: z.array(z.string().min(1).max(300)).max(20).optional(),
   requirements: z.array(z.string().min(1).max(300)).max(20).optional(),
 });

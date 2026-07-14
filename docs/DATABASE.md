@@ -9,6 +9,12 @@ Two Neon branches (matches Vercel Production + Preview):
 
 No other Neon branches are used.
 
+## Local Prisma + Next restart
+
+`npm run dev` watches `prisma/schema.prisma`. After a schema edit — or after `npm run db:push` / `db:generate` / `db:migrate` — it regenerates the Prisma client and restarts Next so you don’t keep a stale client in memory.
+
+Escape hatch (no auto-restart): `npm run dev:next`.
+
 ## Content model (lessons)
 
 Lessons use `LessonType`: `VIDEO` | `TEXT` | `PDF`.

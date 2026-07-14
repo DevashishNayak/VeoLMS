@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { lessonSchema } from "@/lib/validations";
-import { forbidden, requireAdminSession } from "@/lib/admin-auth";
+import {
+  assertCanManageLesson,
+  assertCanManageSection,
+  forbidden,
+  requireStaffSession,
+} from "@/lib/admin-auth";
 import { z } from "zod";
 
 const updateLessonBody = lessonSchema.and(
@@ -14,18 +19,25 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireAdminSession();
+  const session = await requireStaffSession();
   if (!session) return forbidden();
 
   const { id } = await params;
+  if (!(await assertCanManageLesson(session, id)).ok) return forbidden();
+
   const body = await request.json();
-  // Admin forms send a full lesson payload — do not use .partial() on refined schemas (Zod 4).
   const parsed = updateLessonBody.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? "Invalid data" },
       { status: 400 }
     );
+  }
+
+  if (parsed.data.sectionId) {
+    if (!(await assertCanManageSection(session, parsed.data.sectionId)).ok) {
+      return forbidden();
+    }
   }
 
   const data = { ...parsed.data } as Record<string, unknown>;
@@ -71,10 +83,12 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireAdminSession();
+  const session = await requireStaffSession();
   if (!session) return forbidden();
 
   const { id } = await params;
+  if (!(await assertCanManageLesson(session, id)).ok) return forbidden();
+
   await prisma.lesson.delete({ where: { id } });
   return NextResponse.json({ success: true });
 }

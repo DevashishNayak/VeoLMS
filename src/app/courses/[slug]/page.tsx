@@ -1,25 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  Award,
-  BookOpen,
-  CheckCircle,
-  Clock,
-  FileText,
-  Film,
-  MonitorPlay,
-  User,
-} from "lucide-react";
+import { BookOpen, CheckCircle, Clock, User } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getCourseBySlug } from "@/lib/courses";
-import { getCourseProgress, isEnrolled } from "@/lib/access";
+import { getCourseProgress } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
-import { formatDuration, formatPrice } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { CheckoutButton } from "@/components/payment/checkout-button";
-import { VideoPlayer } from "@/components/video/video-player";
+import { formatDuration } from "@/lib/utils";
+import {
+  DELIVERY_TYPE_ACCESS_NOTE,
+  DELIVERY_TYPE_DURATION_LABEL,
+  DELIVERY_TYPE_LABEL,
+} from "@/lib/delivery-type";
 import { CourseCurriculum } from "@/components/course/course-curriculum";
+import { CoursePurchaseCard } from "@/components/course/course-purchase-card";
+import { VideoPlayer } from "@/components/video/video-player";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -27,17 +21,15 @@ interface PageProps {
 
 export default async function CourseDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  const course = await getCourseBySlug(slug);
+  const session = await auth();
+  const course = await getCourseBySlug(slug, session?.user?.id);
   if (!course) notFound();
 
-  const session = await auth();
-  const enrolled = session?.user?.id
-    ? await isEnrolled(session.user.id, course.id)
-    : false;
+  const enrolled = course.enrolled;
+  const deliveryType = course.deliveryType ?? "SELF_PACED";
 
   const allLessons = course.sections.flatMap((s) => s.lessons);
-  const previewLessons = allLessons.filter((l) => l.isPreview);
-  const trailerLesson = previewLessons[0] ?? allLessons[0];
+  const trailerLesson = allLessons.find((l) => l.isPreview) ?? null;
   const trailerType = trailerLesson?.type ?? "VIDEO";
   const totalDuration = allLessons.reduce((a, l) => a + l.duration, 0);
   const videoCount = allLessons.filter((l) => l.type === "VIDEO").length;
@@ -90,13 +82,34 @@ export default async function CourseDetailPage({ params }: PageProps) {
           "Curiosity and willingness to practice",
         ];
 
+  const purchaseProps = {
+    courseId: course.id,
+    courseSlug: course.slug,
+    courseTitle: course.title,
+    thumbnail: course.thumbnail,
+    priceInPaise: course.priceInPaise,
+    enrolled,
+    progress,
+    resumeLessonId,
+    accessNote: DELIVERY_TYPE_ACCESS_NOTE[deliveryType],
+    durationLabel: DELIVERY_TYPE_DURATION_LABEL[deliveryType],
+    totalDuration,
+    videoCount,
+    articleCount,
+    pdfCount,
+    userName: session?.user?.name ?? undefined,
+    userEmail: session?.user?.email ?? undefined,
+    isLoggedIn: Boolean(session?.user),
+  };
+
   return (
     <div className="bg-background">
-      {/* Hero */}
       <div className="border-b border-border bg-zinc-950 text-white">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-3 lg:px-8 lg:py-12">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:grid lg:grid-cols-3 lg:gap-8 lg:px-8 lg:py-12">
           <div className="lg:col-span-2">
-            <p className="text-sm font-medium text-primary">Online course</p>
+            <p className="text-sm font-medium text-primary">
+              {DELIVERY_TYPE_LABEL[deliveryType]}
+            </p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
               {course.title}
             </h1>
@@ -117,20 +130,14 @@ export default async function CourseDetailPage({ params }: PageProps) {
                 {formatDuration(totalDuration)} total
               </span>
             </div>
-            {enrolled && (
-              <p className="mt-4 text-sm text-primary">
-                You’re enrolled · {progress}% complete
-              </p>
-            )}
           </div>
-
-          {/* Desktop purchase card duplicates sticky card visually in hero column on large screens */}
+          {/* Reserves the right column so the sticky card can pull up into the hero */}
           <div className="hidden lg:block" aria-hidden />
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-3 lg:px-8">
-        <div className="space-y-10 lg:col-span-2">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 md:py-10 lg:grid-cols-3 lg:px-8">
+        <div className="order-2 space-y-10 lg:order-1 lg:col-span-2">
           {trailerLesson && (
             <section>
               <h2 className="mb-3 text-xl font-bold">Preview this course</h2>
@@ -149,11 +156,7 @@ export default async function CourseDetailPage({ params }: PageProps) {
                 <div className="rounded-xl border border-border bg-muted/40 p-6 text-sm text-muted-foreground">
                   Free preview:{" "}
                   <Link
-                    href={
-                      enrolled || trailerLesson.isPreview
-                        ? `/learn/${course.slug}/${trailerLesson.id}`
-                        : `/login?callbackUrl=/courses/${course.slug}`
-                    }
+                    href={`/learn/${course.slug}/${trailerLesson.id}`}
                     className="font-medium text-primary hover:underline"
                   >
                     {trailerLesson.title}
@@ -212,7 +215,7 @@ export default async function CourseDetailPage({ params }: PageProps) {
           <section className="rounded-xl border border-border bg-card p-6">
             <h2 className="text-xl font-bold">Instructor</h2>
             <div className="mt-4 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20 text-lg font-semibold text-primary-foreground">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20 text-lg font-semibold text-primary">
                 {course.instructor.name
                   .split(" ")
                   .map((p) => p[0])
@@ -228,78 +231,11 @@ export default async function CourseDetailPage({ params }: PageProps) {
           </section>
         </div>
 
-        {/* Sticky purchase card */}
-        <div className="lg:sticky lg:top-20 lg:self-start">
-          <Card className="overflow-hidden shadow-lg">
-            <div className="relative aspect-video bg-muted">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={course.thumbnail}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <CardContent className="space-y-4 p-5">
-              <p className="text-3xl font-bold">
-                {course.priceInPaise === 0
-                  ? "Free"
-                  : formatPrice(course.priceInPaise)}
-              </p>
-
-              {enrolled && resumeLessonId ? (
-                <Button size="lg" className="w-full" asChild>
-                  <Link href={`/learn/${course.slug}/${resumeLessonId}`}>
-                    {progress > 0 ? "Continue learning" : "Go to course"}
-                  </Link>
-                </Button>
-              ) : session?.user ? (
-                <CheckoutButton
-                  courseId={course.id}
-                  courseTitle={course.title}
-                  priceInPaise={course.priceInPaise}
-                  userName={session.user.name ?? undefined}
-                  userEmail={session.user.email ?? undefined}
-                />
-              ) : (
-                <Button size="lg" className="w-full" asChild>
-                  <Link href={`/login?callbackUrl=/courses/${course.slug}`}>
-                    Log in to enroll
-                  </Link>
-                </Button>
-              )}
-
-              <p className="text-center text-xs text-muted-foreground">
-                Full lifetime access · Progress tracking
-              </p>
-
-              <div>
-                <p className="text-sm font-semibold">This course includes:</p>
-                <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-center gap-2">
-                    <MonitorPlay className="h-4 w-4 text-foreground" />
-                    {videoCount} video lessons
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-foreground" />
-                    {articleCount} reading articles
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Film className="h-4 w-4 text-foreground" />
-                    {pdfCount} PDF resources
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-foreground" />
-                    {formatDuration(totalDuration)} on-demand content
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Award className="h-4 w-4 text-foreground" />
-                    Completion progress tracking
-                  </li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <aside className="order-1 lg:order-2 lg:-mt-44 xl:-mt-52 lg:self-start">
+          <div className="lg:sticky lg:top-20">
+            <CoursePurchaseCard {...purchaseProps} />
+          </div>
+        </aside>
       </div>
     </div>
   );

@@ -18,8 +18,8 @@ import {
   ListVideo,
   Activity,
 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { signOut } from "next-auth/react";
+import { useEffect, useMemo, useState } from "react";
+import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { AdminBreadcrumbs } from "@/components/admin/breadcrumbs";
@@ -69,6 +69,12 @@ function isItemActive(pathname: string, href: string) {
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
+  const navGroups = useMemo(
+    () => (isAdmin ? groups : groups.filter((g) => g.id === "courses")),
+    [isAdmin]
+  );
   const [collapsed, setCollapsed] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     courses: true,
@@ -76,19 +82,18 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
-    // Auto-expand the group that contains the active page
-    for (const group of groups) {
+    for (const group of navGroups) {
       if (group.items.some((item) => isItemActive(pathname, item.href))) {
         setOpenGroups((s) => ({ ...s, [group.id]: true }));
       }
     }
-  }, [pathname]);
+  }, [pathname, navGroups]);
 
   function groupActive(group: NavGroup) {
     return group.items.some((item) => isItemActive(pathname, item.href));
   }
 
-  const flatItems = groups.flatMap((g) => g.items);
+  const flatItems = navGroups.flatMap((g) => g.items);
 
   return (
     <div className="fixed inset-0 z-[60] flex bg-background">
@@ -105,10 +110,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           {!collapsed && (
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold tracking-tight text-foreground">
-                VeoLMS Admin
+                {isAdmin ? "VeoLMS Admin" : "Instructor"}
               </p>
               <p className="truncate text-[11px] text-sidebar-foreground">
-                Content & students
+                {isAdmin ? "Content & students" : "Your courses"}
               </p>
             </div>
           )}
@@ -140,7 +145,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               })}
             </ul>
           ) : (
-            groups.map((group) => {
+            navGroups.map((group) => {
               const GroupIcon = group.icon;
               const open = openGroups[group.id] ?? true;
               return (

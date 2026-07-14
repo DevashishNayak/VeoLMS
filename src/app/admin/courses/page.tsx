@@ -53,6 +53,7 @@ const empty = {
   priceInPaise: 49900,
   featured: false,
   published: true,
+  deliveryType: "SELF_PACED" as "SELF_PACED" | "LIVE" | "OFFLINE",
 };
 
 const defaultMeta: PageMeta = {
@@ -371,6 +372,23 @@ function AdminCoursesPageInner() {
                 })
               }
             />
+          </div>
+          <div>
+            <Label>Delivery type</Label>
+            <select
+              className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+              value={form.deliveryType}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  deliveryType: e.target.value as typeof form.deliveryType,
+                })
+              }
+            >
+              <option value="SELF_PACED">On-demand (online)</option>
+              <option value="LIVE">Live sessions</option>
+              <option value="OFFLINE">In-person / offline</option>
+            </select>
           </div>
           <div className="flex flex-wrap gap-3">
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm hover:bg-muted/60">

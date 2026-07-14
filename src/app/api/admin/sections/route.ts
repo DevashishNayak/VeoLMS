@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sectionSchema } from "@/lib/validations";
-import { forbidden, requireAdminSession } from "@/lib/admin-auth";
+import {
+  assertCanManageCourse,
+  coursesOwnedWhere,
+  forbidden,
+  requireStaffSession,
+} from "@/lib/admin-auth";
 import { pageMeta, parseListQuery } from "@/lib/admin-query";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
@@ -11,16 +16,18 @@ const createSectionSchema = sectionSchema.extend({
 });
 
 export async function GET(request: Request) {
-  const session = await requireAdminSession();
+  const session = await requireStaffSession();
   if (!session) return forbidden();
 
   const url = new URL(request.url);
   const { page, pageSize, q, skip } = parseListQuery(url);
   const courseId = url.searchParams.get("courseId") || undefined;
   const forSelect = url.searchParams.get("forSelect") === "1";
+  const owned = coursesOwnedWhere(session);
 
   if (forSelect) {
     const sections = await prisma.section.findMany({
+      where: { course: owned },
       include: {
         course: { select: { id: true, title: true } },
       },
@@ -30,7 +37,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ sections });
   }
 
-  const where: Prisma.SectionWhereInput = {};
+  const where: Prisma.SectionWhereInput = { course: owned };
   if (courseId) where.courseId = courseId;
   if (q) {
     where.OR = [
@@ -60,7 +67,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const session = await requireAdminSession();
+  const session = await requireStaffSession();
   if (!session) return forbidden();
 
   const body = await request.json();
@@ -73,6 +80,8 @@ export async function POST(request: Request) {
   }
 
   const { courseId, title, order } = parsed.data;
+  if (!(await assertCanManageCourse(session, courseId))) return forbidden();
+
   const nextOrder =
     order ??
     ((

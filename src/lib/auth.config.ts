@@ -16,14 +16,18 @@ export const authConfig = {
       const isLoggedIn = !!auth?.user;
       const role = auth?.user?.role;
 
-      if (
-        (pathname.startsWith("/dashboard") || pathname.startsWith("/learn")) &&
-        !isLoggedIn
-      ) {
+      if (pathname.startsWith("/dashboard") && !isLoggedIn) {
         return false;
       }
 
-      if (pathname.startsWith("/admin") && (!isLoggedIn || role !== "ADMIN")) {
+      // Preview lessons are checked in the learn page / content API.
+      if (pathname.startsWith("/learn")) {
+        return true;
+      }
+
+      if (pathname.startsWith("/admin")) {
+        if (!isLoggedIn) return false;
+        if (role === "ADMIN" || role === "INSTRUCTOR") return true;
         return false;
       }
 
@@ -39,7 +43,10 @@ export const authConfig = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as "STUDENT" | "ADMIN";
+        session.user.role = token.role as
+          | "STUDENT"
+          | "INSTRUCTOR"
+          | "ADMIN";
       }
       return session;
     },
