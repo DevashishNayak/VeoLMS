@@ -185,4 +185,4 @@ MIT — built for the VeoLMS open-source project challenge.
 
 ## Environments
 
-See [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md) for Dev / Staging / Production URLs.
+**One** Vercel project + git branches (not three projects). See [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md).

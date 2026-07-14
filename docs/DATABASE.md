@@ -1,51 +1,30 @@
 # Database environments
 
-## Recommended setup (solo / small team)
+## Model (recommended)
 
-| What you use | Database | Purpose |
-|--------------|----------|---------|
-| **Local app** (`npm run dev`) | Neon branch **`staging`** | Day-to-day development — same data whenever you work |
-| **Vercel Preview** | Neon branch **`staging`** | Test deploys with the same data |
-| **Staging URL** | Neon branch **`staging`** | https://veo-lms-staging.vercel.app |
-| **Dev URL** | Neon branch **`preview`** | https://veo-lms-dev.vercel.app |
-| **Production URL** | Neon branch **`main`** | https://veo-lms.vercel.app |
+**One Neon project**, multiple **branches**.  
+**One Vercel project**, Production vs Preview.
 
-**Practice:** Keep **production** separate. You do **not** need a second “local-only” DB unless you want offline work.
+| Where | Neon branch |
+|-------|-------------|
+| Local (`npm run dev`) | `staging` |
+| Vercel Preview (`staging` / `develop` / PRs) | `staging` |
+| Vercel Production (`main` → https://veo-lms.vercel.app) | `main` |
 
-If you create a course while developing locally, it is on `staging` — not production. Refresh local and it is still there. No re-creating.
+Production stays isolated. Local and Preview share staging so you don’t recreate data.
 
-## Why you had to recreate courses
+See also [DEPLOYMENTS.md](./DEPLOYMENTS.md).
 
-| Place you created data | Where it lived |
-|------------------------|----------------|
-| Local (`localhost` Postgres) | Only your machine |
-| Live site (`veo-lms.vercel.app`) | Neon **`main`** (production) |
+## Why not “switch” production to stage?
 
-Those were different databases. Creating on production does not appear locally, and vice versa. That was expected — but painful for active development.
+Changing Vercel’s Production Branch or pointing local `.env` at Neon `main` mixes test data with live data. Prefer:
 
-Your local `.env` now uses Neon **`staging`**, so local + preview share one development DB.
+- code path: git branch  
+- data path: Neon branch  
 
-## Optional: true offline local Postgres
-
-Only if you need to work without internet:
-
-```env
-DATABASE_URL="postgres://postgres:postgres@localhost:51214/template1?sslmode=disable"
-DIRECT_URL="postgres://postgres:postgres@localhost:51214/template1?sslmode=disable"
-```
-
-Then:
+## Create another Neon environment
 
 ```bash
-npx prisma dev --detach
-npx prisma db push
-npm run db:seed
-```
-
-## Creating more environments later
-
-```bash
-# Branch from production snapshot when you need a clean test DB
 neonctl branches create \
   --project-id lucky-glitter-50126763 \
   --org-id org-calm-glade-51982106 \
@@ -57,10 +36,13 @@ neonctl connection-string qa \
   --org-id org-calm-glade-51982106
 ```
 
-Point a Vercel Preview / new project at that URL.
+Then either:
 
-## Safety rules
+- set that URL as Vercel **Preview** `DATABASE_URL`, or  
+- use Neon ← GitHub integration for a DB branch per PR
 
-- Never put Neon **`main`** in local `.env` for daily coding.
-- Never run `npm run db:seed` against production unless intentional.
-- Prefer Neon branches over cloning whole projects.
+## Safety
+
+- Never use Neon `main` in local `.env` for daily work  
+- Never seed production unless intentional  
+- Prefer Neon branches over new Neon projects  

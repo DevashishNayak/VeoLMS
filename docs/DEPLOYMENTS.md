@@ -1,61 +1,102 @@
-# Deployments (dev / staging / production)
+# Deployments — one Vercel project
 
-You get **three stable public URLs**, each with its own Neon database:
+Use **one** Vercel project (`veo-lms`). Environments come from **git branches**, not from extra projects.
 
-| Env | URL | Git branch (optional) | Neon DB branch | Vercel project |
-|-----|-----|----------------------|----------------|----------------|
-| **Production** | https://veo-lms.vercel.app | `main` | `main` | `veo-lms` |
-| **Staging** | https://veo-lms-staging.vercel.app | `staging` | `staging` | `veo-lms-staging` |
-| **Dev** | https://veo-lms-dev.vercel.app | `develop` | `preview` | `veo-lms-dev` |
-| **Local** | http://localhost:3000 | any | `staging` (shared with Staging) | — |
+```
+                    ┌─────────────────────┐
+   git push main ──►│ Production          │──► Neon branch: main
+                    │ veo-lms.vercel.app  │
+                    └─────────────────────┘
 
-## How to use day to day
+ git push staging ─►│ Preview (staging)   │──► Neon branch: staging
+                    │ *-git-staging-*.app │
+                    └─────────────────────┘
 
-- **Build features locally** → http://localhost:3000 (same data as Staging)
-- **Share for testing** → https://veo-lms-staging.vercel.app
-- **Experimental / throwaway cloud** → https://veo-lms-dev.vercel.app
-- **Live users / submission** → https://veo-lms.vercel.app
-
-## Redeploy an environment
-
-Default CLI link is production (`veo-lms`). To deploy another:
-
-```bash
-# Staging
-vercel link --yes --project veo-lms-staging
-vercel --prod
-
-# Dev
-vercel link --yes --project veo-lms-dev
-vercel --prod
-
-# Back to production as default
-vercel link --yes --project veo-lms
+git push develop ──►│ Preview (develop)   │──► Neon branch: staging*
+                    │ *-git-develop-*.app │
+                    └─────────────────────┘
 ```
 
-Or from the Vercel dashboard: open the project → Deployments → Redeploy.
+\*Preview env vars are shared: all non-`main` branches use the Preview `DATABASE_URL` (Neon `staging`).
 
-## GitHub auto-deploy (recommended)
+## Do not flip the “Production Branch”
 
-In each Vercel project → **Settings → Git**:
+Avoid changing Vercel’s Production Branch between `dev` / `stage` / `prod`. That swaps what `veo-lms.vercel.app` points at and risks shipping the wrong DB.
 
-1. Connect `DevashishNayak/VeoLMS`
-2. Set **Production Branch**:
-   - `veo-lms` → `main`
-   - `veo-lms-staging` → `staging`
-   - `veo-lms-dev` → `develop`
+| Goal | Action |
+|------|--------|
+| Update **production** | `git push origin main` |
+| Update **staging preview** | `git push origin staging` |
+| Try something experimental | `git push origin develop` or open a PR |
 
-Then:
+## URLs
+
+| Env | How you get it | Neon DB |
+|-----|----------------|---------|
+| **Production** | https://veo-lms.vercel.app | `main` |
+| **Staging / Preview** | Deployments tab → latest **Preview** for branch `staging` | `staging` |
+| **Local** | http://localhost:3000 (`.env` → Neon `staging`) | `staging` |
+
+Open previews: [Vercel → veo-lms → Deployments](https://vercel.com/devashish-projects/veo-lms)
+
+Optional stable staging hostname (same project):
+
+1. Vercel → Project → **Settings → Domains**
+2. Add a domain / subdomain
+3. Assign it to Git branch **`staging`**
+
+## Neon (same idea — branches, not new projects)
+
+| Neon branch | Used by |
+|-------------|---------|
+| `main` | Production only |
+| `staging` | Local + all Vercel Preview deploys |
+
+Create more DB environments without a new Neon “project”:
 
 ```bash
-git push origin develop   # → updates Dev URL
-git push origin staging   # → updates Staging URL
-git push origin main      # → updates Production URL
+neonctl branches create \
+  --project-id lucky-glitter-50126763 \
+  --org-id org-calm-glade-51982106 \
+  --name feature-x \
+  --parent staging
 ```
 
-## Adding more environments later
+Wire it later via Preview env vars, or Neon’s GitHub integration (auto DB branch per PR).
 
-1. `neonctl branches create --name qa --parent main ...`
-2. `vercel project add veo-lms-qa`
-3. Set `DATABASE_URL` / `DIRECT_URL` / `AUTH_URL` on that project
-4. Deploy with `vercel --prod` after `vercel link --project veo-lms-qa`
+## Vercel env vars (already on `veo-lms`)
+
+| Vercel environment | When it applies | `DATABASE_URL` |
+|--------------------|-----------------|----------------|
+| **Production** | deploys from `main` | Neon `main` |
+| **Preview** | deploys from any other branch / PR | Neon `staging` |
+| **Development** | `vercel env pull` / `vercel dev` | Neon `preview` (optional) |
+
+## Daily workflow
+
+```bash
+# Feature work (same DB as staging)
+npm run dev                  # local → Neon staging
+
+git checkout -b feature/foo
+# ...code...
+git push -u origin feature/foo
+# → creates a Preview URL automatically (after GitHub is connected)
+
+# Promote to shared staging branch
+git checkout staging && git merge feature/foo && git push
+
+# Release
+git checkout main && git merge staging && git push
+# → updates https://veo-lms.vercel.app (Neon main)
+```
+
+## Connect GitHub (one-time)
+
+If auto Preview URLs are missing:
+
+1. https://vercel.com/devashish-projects/veo-lms/settings/git  
+2. Connect `DevashishNayak/VeoLMS`  
+3. Production Branch = **`main`** (leave it)
+
+Extra projects `veo-lms-staging` / `veo-lms-dev` are removed — use this flow instead.
