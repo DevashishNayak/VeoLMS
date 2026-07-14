@@ -182,3 +182,7 @@ prisma/
 ## License
 
 MIT — built for the VeoLMS open-source project challenge.
+
+## Environments
+
+See [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md) for Dev / Staging / Production URLs.

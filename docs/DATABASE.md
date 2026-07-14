@@ -6,7 +6,9 @@
 |--------------|----------|---------|
 | **Local app** (`npm run dev`) | Neon branch **`staging`** | Day-to-day development — same data whenever you work |
 | **Vercel Preview** | Neon branch **`staging`** | Test deploys with the same data |
-| **Production** | Neon branch **`main`** | Live site only — never develop against this |
+| **Staging URL** | Neon branch **`staging`** | https://veo-lms-staging.vercel.app |
+| **Dev URL** | Neon branch **`preview`** | https://veo-lms-dev.vercel.app |
+| **Production URL** | Neon branch **`main`** | https://veo-lms.vercel.app |
 
 **Practice:** Keep **production** separate. You do **not** need a second “local-only” DB unless you want offline work.
 
