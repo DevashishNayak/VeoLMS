@@ -1,51 +1,21 @@
-# Database — matches Vercel’s 3 environments
+# Database — 2 Neon branches (matches Vercel)
 
-Vercel has **three** environments. Neon has **three** matching branches:
+Vercel has **Production** and **Preview** only → Neon keeps **two** branches:
 
-| Vercel environment | Neon branch | Who uses it |
-|--------------------|-------------|-------------|
-| **Production** | `main` | Live site https://veo-lms.vercel.app |
-| **Preview** | `preview` | Branch/PR Preview URLs (testers) |
-| **Development** | `development` | Local `npm run dev` (+ `vercel env pull`) |
+| Vercel | Neon | Purpose |
+|--------|------|---------|
+| **Production** | `main` | Live site |
+| **Preview** (+ local) | `dev` | Testers Preview URLs + `npm run dev` |
 
 ```
-Vercel Production  ──►  Neon main
-Vercel Preview     ──►  Neon preview
-Vercel Development ──►  Neon development   ← your laptop .env
+Production  →  Neon main
+Preview     →  Neon dev
+Local       →  Neon dev
 ```
 
-Ignore any leftover Neon branch named `staging` if it still appears in the console — it is unused.
-
-## Local setup
-
-`.env` should point at Neon **`development`** (already configured).
-
-```bash
-npm run dev
-```
-
-## Tester workflow
-
-1. Push a non-`main` branch (e.g. `staging` or a feature branch)
-2. Vercel creates a **Preview** deployment
-3. Send the Preview URL to the tester  
-   → that app uses Neon **`preview`**
-
-Production stays on Neon **`main`**.
-
-See [DEPLOYMENTS.md](./DEPLOYMENTS.md).
-
-## Create another Neon branch later
-
-```bash
-neonctl branches create \
-  --project-id lucky-glitter-50126763 \
-  --org-id org-calm-glade-51982106 \
-  --name qa \
-  --parent preview
-```
+Extra Neon branches (`preview`, `development`, `staging`) are leftovers — ignore them in the console; only **`main`** and **`dev`** are used.
 
 ## Safety
 
-- Do not put Neon `main` in local `.env` for daily work  
-- Do not seed production unless intentional  
+- Never point local `.env` at Neon `main` for daily coding  
+- Never seed Neon `main` unless shipping intentionally  
