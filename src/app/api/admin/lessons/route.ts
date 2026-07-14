@@ -101,6 +101,7 @@ export async function POST(request: Request) {
     duration,
     order,
     isPreview,
+    resources,
   } = parsed.data;
 
   const nextOrder =
@@ -125,7 +126,18 @@ export async function POST(request: Request) {
       duration: duration ?? 0,
       order: nextOrder,
       isPreview: isPreview ?? false,
+      resources: resources?.length
+        ? {
+            create: resources.map((r, i) => ({
+              title: r.title,
+              url: r.url,
+              mimeType: r.mimeType ?? null,
+              order: i,
+            })),
+          }
+        : undefined,
     },
+    include: { resources: true },
   });
   return NextResponse.json({ lesson }, { status: 201 });
 }

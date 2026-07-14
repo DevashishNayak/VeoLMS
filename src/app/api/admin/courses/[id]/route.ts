@@ -18,7 +18,10 @@ export async function GET(
       sections: {
         orderBy: { order: "asc" },
         include: {
-          lessons: { orderBy: { order: "asc" } },
+          lessons: {
+            orderBy: { order: "asc" },
+            include: { resources: { orderBy: { order: "asc" } } },
+          },
         },
       },
       _count: { select: { enrollments: true } },

@@ -11,6 +11,7 @@ export type AdminLesson = {
   order: number;
   isPreview: boolean;
   sectionId: string;
+  resources?: { id: string; title: string; url: string; mimeType?: string | null }[];
 };
 
 export type AdminSection = {
@@ -27,6 +28,8 @@ export type AdminCourse = {
   slug: string;
   description: string;
   thumbnail: string;
+  learningOutcomes?: string[];
+  requirements?: string[];
   priceInPaise: number;
   featured: boolean;
   published: boolean;

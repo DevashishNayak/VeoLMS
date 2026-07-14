@@ -37,6 +37,8 @@ export const courseSchema = z.object({
   priceInPaise: z.coerce.number().int().min(0).max(100000000),
   featured: z.boolean().optional(),
   published: z.boolean().optional(),
+  learningOutcomes: z.array(z.string().min(1).max(300)).max(20).optional(),
+  requirements: z.array(z.string().min(1).max(300)).max(20).optional(),
 });
 
 export const sectionSchema = z.object({
@@ -69,6 +71,16 @@ export const lessonSchema = z
     duration: z.coerce.number().int().min(0).optional(),
     order: z.coerce.number().int().min(0).optional(),
     isPreview: z.boolean().optional(),
+    resources: z
+      .array(
+        z.object({
+          title: z.string().min(1).max(200),
+          url: z.string().url(),
+          mimeType: z.string().max(100).optional().nullable(),
+        })
+      )
+      .max(20)
+      .optional(),
   })
   .superRefine((data, ctx) => {
     if (data.type === "VIDEO") {

@@ -42,21 +42,25 @@ model User {
 }
 
 model Course {
-  id           String       @id @default(cuid())
-  title        String
-  slug         String       @unique
-  description  String       @db.Text
-  thumbnail    String       @db.Text
-  priceInPaise Int
-  featured     Boolean      @default(false)
-  published    Boolean      @default(true)
-  instructorId String
-  instructor   User         @relation("InstructorCourses", fields: [instructorId], references: [id])
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  sections     Section[]
-  enrollments  Enrollment[]
-  payments     Payment[]
+  id               String       @id @default(cuid())
+  title            String
+  slug             String       @unique
+  description      String       @db.Text
+  thumbnail        String       @db.Text
+  /// Bullet list shown as “What you’ll learn”
+  learningOutcomes String[]     @default([])
+  /// Bullet list shown as “Requirements”
+  requirements     String[]     @default([])
+  priceInPaise     Int
+  featured         Boolean      @default(false)
+  published        Boolean      @default(true)
+  instructorId     String
+  instructor       User         @relation("InstructorCourses", fields: [instructorId], references: [id])
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  sections         Section[]
+  enrollments      Enrollment[]
+  payments         Payment[]
 
   @@index([slug])
   @@index([featured])

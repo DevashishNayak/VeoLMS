@@ -1,20 +1,15 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canAccessLesson } from "@/lib/access";
-import { formatDuration } from "@/lib/utils";
+import { canAccessLesson, getCourseProgress } from "@/lib/access";
 import { LessonContentView } from "@/components/learn/lesson-content-view";
-import { CheckCircle, FileText, Film, Lock, Play } from "lucide-react";
+import { LearnSidebar } from "@/components/learn/learn-sidebar";
+import { Button } from "@/components/ui/button";
 
 interface PageProps {
   params: Promise<{ courseSlug: string; lessonId: string }>;
-}
-
-function typeIcon(type: string) {
-  if (type === "PDF") return FileText;
-  if (type === "TEXT") return FileText;
-  return Film;
 }
 
 export default async function LearnPage({ params }: PageProps) {
@@ -46,35 +41,67 @@ export default async function LearnPage({ params }: PageProps) {
   const allowed = await canAccessLesson(session.user.id, lessonId);
   if (!allowed) redirect(`/courses/${courseSlug}`);
 
-  const progress = await prisma.lessonProgress.findUnique({
-    where: {
-      userId_lessonId: { userId: session.user.id, lessonId },
-    },
-  });
-
-  const allLessons = course.sections.flatMap((s) =>
-    s.lessons.map((l) => ({ ...l, sectionTitle: s.title }))
-  );
+  const allLessons = course.sections.flatMap((s) => s.lessons);
   const currentIdx = allLessons.findIndex((l) => l.id === lessonId);
-  const nextLesson = allLessons[currentIdx + 1];
+  const prevLesson = currentIdx > 0 ? allLessons[currentIdx - 1] : null;
+  const nextLesson =
+    currentIdx >= 0 && currentIdx < allLessons.length - 1
+      ? allLessons[currentIdx + 1]
+      : null;
 
-  const enrolledLessonIds = new Set(
-    (
-      await Promise.all(
-        allLessons.map(async (l) => ({
-          id: l.id,
-          allowed: await canAccessLesson(session.user.id!, l.id),
-        }))
-      )
-    )
-      .filter((x) => x.allowed)
-      .map((x) => x.id)
+  const [progress, allProgress, courseProgress] = await Promise.all([
+    prisma.lessonProgress.findUnique({
+      where: {
+        userId_lessonId: { userId: session.user.id, lessonId },
+      },
+    }),
+    prisma.lessonProgress.findMany({
+      where: {
+        userId: session.user.id,
+        lessonId: { in: allLessons.map((l) => l.id) },
+        completed: true,
+      },
+      select: { lessonId: true },
+    }),
+    getCourseProgress(session.user.id, course.id),
+  ]);
+
+  const completedIds = allProgress.map((p) => p.lessonId);
+
+  const accessFlags = await Promise.all(
+    allLessons.map(async (l) => ({
+      id: l.id,
+      allowed: await canAccessLesson(session.user.id!, l.id),
+    }))
   );
+  const accessibleIds = accessFlags.filter((x) => x.allowed).map((x) => x.id);
+
+  const sectionTitle =
+    course.sections.find((s) => s.lessons.some((l) => l.id === lessonId))
+      ?.title ?? "";
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+    <div className="min-h-[calc(100dvh-4rem)] bg-background">
+      <div className="border-b border-border bg-card">
+        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
+          <Link
+            href={`/courses/${courseSlug}`}
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            ← {course.title}
+          </Link>
+          <span className="hidden text-muted-foreground sm:inline">/</span>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">
+            {sectionTitle}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            Lecture {currentIdx + 1} of {allLessons.length}
+          </span>
+        </div>
+      </div>
+
+      <div className="mx-auto grid max-w-[1400px] gap-0 lg:grid-cols-[1fr_360px]">
+        <div className="min-w-0 px-4 py-4 sm:px-6">
           <LessonContentView
             lessonId={lesson.id}
             type={lesson.type ?? "VIDEO"}
@@ -84,81 +111,78 @@ export default async function LearnPage({ params }: PageProps) {
             content={lesson.content}
             pdfUrl={lesson.pdfUrl}
             initialProgress={progress?.watchedSeconds ?? 0}
+            initiallyCompleted={progress?.completed ?? false}
             resources={lesson.resources}
           />
-          <h1 className="mt-4 text-2xl font-bold text-foreground">{lesson.title}</h1>
-          <p className="mt-1 text-muted-foreground">{course.title}</p>
-          {lesson.description && (
-            <p className="mt-4 text-foreground/80">{lesson.description}</p>
-          )}
-          {nextLesson && (
-            <Link
-              href={`/learn/${courseSlug}/${nextLesson.id}`}
-              className="mt-6 inline-flex items-center gap-2 text-primary hover:underline"
-            >
-              Next: {nextLesson.title} →
-            </Link>
-          )}
+
+          <div className="mt-6 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-4">
+            <div>
+              <h1 className="text-xl font-bold sm:text-2xl">{lesson.title}</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {course.title}
+                {lesson.description ? ` · ${lesson.description}` : ""}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!prevLesson || !accessibleIds.includes(prevLesson.id)}
+                asChild={Boolean(prevLesson && accessibleIds.includes(prevLesson.id))}
+              >
+                {prevLesson && accessibleIds.includes(prevLesson.id) ? (
+                  <Link href={`/learn/${courseSlug}/${prevLesson.id}`}>
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Link>
+                ) : (
+                  <span>
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </span>
+                )}
+              </Button>
+              <Button
+                size="sm"
+                disabled={!nextLesson || !accessibleIds.includes(nextLesson.id)}
+                asChild={Boolean(nextLesson && accessibleIds.includes(nextLesson.id))}
+              >
+                {nextLesson && accessibleIds.includes(nextLesson.id) ? (
+                  <Link href={`/learn/${courseSlug}/${nextLesson.id}`}>
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                ) : (
+                  <span>
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </span>
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
 
-        <aside className="max-h-[80vh] overflow-y-auto rounded-xl border border-border bg-card">
-          <div className="sticky top-0 z-[1] border-b border-border bg-card p-4">
-            <h2 className="font-semibold">Course content</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {allLessons.length} lessons · {course.sections.length} sections
-            </p>
-          </div>
-          {course.sections.map((section) => (
-            <div key={section.id}>
-              <p className="bg-muted/50 px-4 py-2 text-sm font-medium text-muted-foreground">
-                {section.title}
-              </p>
-              {section.lessons.map((l) => {
-                const accessible = enrolledLessonIds.has(l.id);
-                const isCurrent = l.id === lessonId;
-                const Icon = typeIcon(l.type);
-                return (
-                  <Link
-                    key={l.id}
-                    href={
-                      accessible
-                        ? `/learn/${courseSlug}/${l.id}`
-                        : `/courses/${courseSlug}`
-                    }
-                    className={`flex items-center gap-2 border-b border-border/60 px-4 py-3 text-sm ${
-                      isCurrent
-                        ? "bg-primary/10 text-foreground"
-                        : accessible
-                          ? "hover:bg-muted/40"
-                          : "text-muted-foreground"
-                    }`}
-                  >
-                    {accessible ? (
-                      isCurrent ? (
-                        <Play className="h-4 w-4 shrink-0 text-primary" />
-                      ) : progress?.completed && isCurrent ? (
-                        <CheckCircle className="h-4 w-4 shrink-0 text-emerald-500" />
-                      ) : (
-                        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      )
-                    ) : (
-                      <Lock className="h-4 w-4 shrink-0" />
-                    )}
-                    <span className="min-w-0 flex-1 truncate">{l.title}</span>
-                    <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
-                      {l.type}
-                    </span>
-                    {l.duration > 0 && (
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {formatDuration(l.duration)}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
-        </aside>
+        <div className="h-[min(80vh,900px)] border-t border-border lg:sticky lg:top-16 lg:h-[calc(100dvh-4rem)] lg:border-l lg:border-t-0">
+          <LearnSidebar
+            courseSlug={courseSlug}
+            currentLessonId={lessonId}
+            accessibleIds={accessibleIds}
+            completedIds={completedIds}
+            progressPercent={courseProgress}
+            sections={course.sections.map((s) => ({
+              id: s.id,
+              title: s.title,
+              lessons: s.lessons.map((l) => ({
+                id: l.id,
+                title: l.title,
+                type: l.type ?? "VIDEO",
+                duration: l.duration,
+                isPreview: l.isPreview,
+              })),
+            }))}
+          />
+        </div>
       </div>
     </div>
   );

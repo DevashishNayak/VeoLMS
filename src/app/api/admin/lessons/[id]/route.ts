@@ -29,14 +29,36 @@ export async function PUT(
   }
 
   const data = { ...parsed.data } as Record<string, unknown>;
+  const resources = data.resources as
+    | { title: string; url: string; mimeType?: string | null }[]
+    | undefined;
+  delete data.resources;
+
   for (const key of ["youtubeId", "videoUrl", "content", "pdfUrl", "description"] as const) {
     if (key in data && data[key] === "") data[key] = null;
   }
 
   try {
-    const lesson = await prisma.lesson.update({
-      where: { id },
-      data,
+    const lesson = await prisma.$transaction(async (tx) => {
+      if (resources) {
+        await tx.lessonResource.deleteMany({ where: { lessonId: id } });
+        if (resources.length) {
+          await tx.lessonResource.createMany({
+            data: resources.map((r, i) => ({
+              lessonId: id,
+              title: r.title,
+              url: r.url,
+              mimeType: r.mimeType ?? null,
+              order: i,
+            })),
+          });
+        }
+      }
+      return tx.lesson.update({
+        where: { id },
+        data,
+        include: { resources: { orderBy: { order: "asc" } } },
+      });
     });
     return NextResponse.json({ lesson });
   } catch (e) {

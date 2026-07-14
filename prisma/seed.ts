@@ -226,9 +226,13 @@ A quick reference for the tags you'll use most.
     });
   }
 
+  const { ensureUdemyStyleCourse } = await import("./ensure-sample-course");
+  await ensureUdemyStyleCourse(prisma, admin.id);
+
   console.log("Seed completed:");
   console.log("  Admin: admin@veolms.com / Admin@12345");
   console.log("  Student: student@veolms.com / Student@12345");
+  console.log("  Sample LMS course: /courses/web-dev-bootcamp");
 }
 
 main()

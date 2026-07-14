@@ -43,6 +43,8 @@ type LessonForm = {
   duration: number;
   isPreview: boolean;
   order?: number;
+  resourceTitle: string;
+  resourceUrl: string;
 };
 
 const emptyLesson: LessonForm = {
@@ -55,6 +57,8 @@ const emptyLesson: LessonForm = {
   pdfUrl: "",
   duration: 600,
   isPreview: false,
+  resourceTitle: "",
+  resourceUrl: "",
 };
 
 export default function AdminCourseDetailPage() {
@@ -77,6 +81,8 @@ export default function AdminCourseDetailPage() {
     priceInPaise: 0,
     featured: false,
     published: true,
+    learningOutcomesText: "",
+    requirementsText: "",
   });
 
   const [sectionModal, setSectionModal] = useState<{
@@ -115,6 +121,8 @@ export default function AdminCourseDetailPage() {
       priceInPaise: c.priceInPaise,
       featured: c.featured,
       published: c.published,
+      learningOutcomesText: (c.learningOutcomes ?? []).join("\n"),
+      requirementsText: (c.requirements ?? []).join("\n"),
     });
     setExpanded((prev) => {
       const next = { ...prev };
@@ -142,8 +150,20 @@ export default function AdminCourseDetailPage() {
     const res = await apiJson(`/api/admin/courses/${courseId}`, {
       method: "PUT",
       body: JSON.stringify({
-        ...meta,
+        title: meta.title,
+        description: meta.description,
+        thumbnail: meta.thumbnail,
         priceInPaise: Number(meta.priceInPaise),
+        featured: meta.featured,
+        published: meta.published,
+        learningOutcomes: meta.learningOutcomesText
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        requirements: meta.requirementsText
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
       }),
     });
     setSavingMeta(false);
@@ -224,6 +244,18 @@ export default function AdminCourseDetailPage() {
     setError("");
     setMessage("");
 
+    const resources =
+      lessonForm.resourceTitle.trim() && lessonForm.resourceUrl.trim()
+        ? [
+            {
+              title: lessonForm.resourceTitle.trim(),
+              url: lessonForm.resourceUrl.trim(),
+            },
+          ]
+        : lessonModal.mode === "edit"
+          ? []
+          : undefined;
+
     const payload = {
       title: lessonForm.title,
       description: lessonForm.description || null,
@@ -235,6 +267,7 @@ export default function AdminCourseDetailPage() {
       duration: Number(lessonForm.duration),
       isPreview: lessonForm.isPreview,
       order: lessonForm.order,
+      ...(resources !== undefined ? { resources } : {}),
     };
 
     if (lessonModal.mode === "create") {
@@ -413,6 +446,28 @@ export default function AdminCourseDetailPage() {
                       setMeta({ ...meta, description: e.target.value })
                     }
                     required
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>What you’ll learn (one per line)</Label>
+                  <Textarea
+                    rows={4}
+                    value={meta.learningOutcomesText}
+                    onChange={(e) =>
+                      setMeta({ ...meta, learningOutcomesText: e.target.value })
+                    }
+                    placeholder={"Build responsive layouts\nMaster Flexbox"}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>Requirements (one per line)</Label>
+                  <Textarea
+                    rows={3}
+                    value={meta.requirementsText}
+                    onChange={(e) =>
+                      setMeta({ ...meta, requirementsText: e.target.value })
+                    }
+                    placeholder={"A computer with a browser\nNo paid tools needed"}
                   />
                 </div>
                 <div>
@@ -630,6 +685,10 @@ export default function AdminCourseDetailPage() {
                                             duration: lesson.duration,
                                             isPreview: lesson.isPreview,
                                             order: lesson.order,
+                                            resourceTitle:
+                                              lesson.resources?.[0]?.title ?? "",
+                                            resourceUrl:
+                                              lesson.resources?.[0]?.url ?? "",
                                           });
                                           setLessonModal({
                                             mode: "edit",
@@ -855,6 +914,31 @@ export default function AdminCourseDetailPage() {
             />
             Free preview
           </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label>Resource title (optional)</Label>
+              <Input
+                placeholder="Worksheet PDF"
+                value={lessonForm.resourceTitle}
+                onChange={(e) =>
+                  setLessonForm({
+                    ...lessonForm,
+                    resourceTitle: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div>
+              <Label>Resource URL</Label>
+              <Input
+                placeholder="https://…"
+                value={lessonForm.resourceUrl}
+                onChange={(e) =>
+                  setLessonForm({ ...lessonForm, resourceUrl: e.target.value })
+                }
+              />
+            </div>
+          </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button
               type="button"

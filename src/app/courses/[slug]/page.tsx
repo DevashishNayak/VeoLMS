@@ -1,14 +1,25 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BookOpen, CheckCircle, Clock, Play, User } from "lucide-react";
+import {
+  Award,
+  BookOpen,
+  CheckCircle,
+  Clock,
+  FileText,
+  Film,
+  MonitorPlay,
+  User,
+} from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getCourseBySlug } from "@/lib/courses";
-import { isEnrolled } from "@/lib/access";
+import { getCourseProgress, isEnrolled } from "@/lib/access";
+import { prisma } from "@/lib/prisma";
 import { formatDuration, formatPrice } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { CheckoutButton } from "@/components/payment/checkout-button";
 import { VideoPlayer } from "@/components/video/video-player";
+import { CourseCurriculum } from "@/components/course/course-curriculum";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -29,178 +40,265 @@ export default async function CourseDetailPage({ params }: PageProps) {
   const trailerLesson = previewLessons[0] ?? allLessons[0];
   const trailerType = trailerLesson?.type ?? "VIDEO";
   const totalDuration = allLessons.reduce((a, l) => a + l.duration, 0);
-  const firstLesson = allLessons[0];
+  const videoCount = allLessons.filter((l) => l.type === "VIDEO").length;
+  const articleCount = allLessons.filter((l) => l.type === "TEXT").length;
+  const pdfCount = allLessons.filter((l) => l.type === "PDF").length;
+
+  let progress = 0;
+  let resumeLessonId = allLessons[0]?.id;
+  if (enrolled && session?.user?.id) {
+    progress = await getCourseProgress(session.user.id, course.id);
+    const recent = await prisma.lessonProgress.findFirst({
+      where: {
+        userId: session.user.id,
+        lesson: { section: { courseId: course.id } },
+      },
+      orderBy: { lastWatchedAt: "desc" },
+    });
+    if (recent) resumeLessonId = recent.lessonId;
+    else {
+      const completed = await prisma.lessonProgress.findMany({
+        where: {
+          userId: session.user.id,
+          completed: true,
+          lessonId: { in: allLessons.map((l) => l.id) },
+        },
+        select: { lessonId: true },
+      });
+      const done = new Set(completed.map((c) => c.lessonId));
+      resumeLessonId =
+        allLessons.find((l) => !done.has(l.id))?.id ?? allLessons[0]?.id;
+    }
+  }
+
+  const outcomes =
+    course.learningOutcomes?.length > 0
+      ? course.learningOutcomes
+      : [
+          "Build real projects step by step",
+          "Understand core concepts with clear video lessons",
+          "Practice with reading notes and downloadable resources",
+          "Track your progress through every lecture",
+        ];
+
+  const requirements =
+    course.requirements?.length > 0
+      ? course.requirements
+      : [
+          "A computer with internet access",
+          "No paid tools required — free stack only",
+          "Curiosity and willingness to practice",
+        ];
 
   return (
-    <div className="bg-white">
-      <div className="bg-slate-900 text-white">
-        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-          <div className="grid gap-8 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <p className="text-sm font-medium text-primary-foreground/80">Course</p>
-              <h1 className="mt-2 text-3xl font-bold sm:text-4xl">{course.title}</h1>
-              <p className="mt-4 text-slate-300">{course.description}</p>
-              <div className="mt-6 flex flex-wrap gap-4 text-sm text-slate-400">
-                <span className="flex items-center gap-1">
-                  <User className="h-4 w-4" />
-                  {course.instructor.name}
-                </span>
-                <span className="flex items-center gap-1">
-                  <BookOpen className="h-4 w-4" />
-                  {allLessons.length} lessons
-                </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
-                  {formatDuration(totalDuration)}
-                </span>
-              </div>
+    <div className="bg-background">
+      {/* Hero */}
+      <div className="border-b border-border bg-zinc-950 text-white">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-3 lg:px-8 lg:py-12">
+          <div className="lg:col-span-2">
+            <p className="text-sm font-medium text-primary">Online course</p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
+              {course.title}
+            </h1>
+            <p className="mt-4 max-w-3xl text-base leading-relaxed text-zinc-300">
+              {course.description}
+            </p>
+            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-zinc-400">
+              <span className="flex items-center gap-1.5">
+                <User className="h-4 w-4" />
+                Created by {course.instructor.name}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <BookOpen className="h-4 w-4" />
+                {allLessons.length} lectures · {course.sections.length} sections
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Clock className="h-4 w-4" />
+                {formatDuration(totalDuration)} total
+              </span>
             </div>
-            <div className="relative aspect-video overflow-hidden rounded-xl bg-muted lg:aspect-auto lg:h-48">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={course.thumbnail}
-                alt={course.title}
-                className="h-full w-full object-cover"
-              />
-            </div>
+            {enrolled && (
+              <p className="mt-4 text-sm text-primary">
+                You’re enrolled · {progress}% complete
+              </p>
+            )}
           </div>
+
+          {/* Desktop purchase card duplicates sticky card visually in hero column on large screens */}
+          <div className="hidden lg:block" aria-hidden />
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="grid gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-2 space-y-8">
-            {trailerLesson && (
-              <section>
-                <h2 className="mb-4 text-xl font-bold">Course Preview</h2>
-                {trailerType === "VIDEO" && trailerLesson.youtubeId ? (
-                  <VideoPlayer
-                    youtubeId={trailerLesson.youtubeId}
-                    lessonId={trailerLesson.id}
-                  />
-                ) : trailerType === "VIDEO" && trailerLesson.videoUrl ? (
-                  <video
-                    className="aspect-video w-full overflow-hidden rounded-xl bg-black"
-                    src={trailerLesson.videoUrl}
-                    controls
-                  />
-                ) : (
-                  <div className="rounded-xl border border-border bg-muted/40 p-6 text-sm text-muted-foreground">
-                    Preview this{" "}
-                    <span className="font-medium text-foreground">
-                      {String(trailerType).toLowerCase()}
-                    </span>{" "}
-                    lesson after starting the course
-                    {firstLesson ? (
-                      <>
-                        {" "}
-                        (
-                        <Link
-                          href={
-                            enrolled
-                              ? `/learn/${course.slug}/${trailerLesson.id}`
-                              : "#"
-                          }
-                          className="text-primary hover:underline"
-                        >
-                          {trailerLesson.title}
-                        </Link>
-                        )
-                      </>
-                    ) : null}
-                    .
-                  </div>
-                )}
-              </section>
-            )}
-
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-3 lg:px-8">
+        <div className="space-y-10 lg:col-span-2">
+          {trailerLesson && (
             <section>
-              <h2 className="mb-4 text-xl font-bold">Curriculum</h2>
-              <div className="space-y-4">
-                {course.sections.map((section) => (
-                  <Card key={section.id}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base">{section.title}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {section.lessons.map((lesson) => (
-                        <div
-                          key={lesson.id}
-                          className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-sm"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Play className="h-4 w-4 text-primary" />
-                            <span>{lesson.title}</span>
-                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                              {lesson.type ?? "VIDEO"}
-                            </span>
-                            {lesson.isPreview && (
-                              <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                                Preview
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-slate-500">
-                            {formatDuration(lesson.duration)}
-                          </span>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <h2 className="mb-3 text-xl font-bold">Preview this course</h2>
+              {trailerType === "VIDEO" && trailerLesson.youtubeId ? (
+                <VideoPlayer
+                  youtubeId={trailerLesson.youtubeId}
+                  lessonId={trailerLesson.id}
+                />
+              ) : trailerType === "VIDEO" && trailerLesson.videoUrl ? (
+                <video
+                  className="aspect-video w-full overflow-hidden rounded-xl bg-black"
+                  src={trailerLesson.videoUrl}
+                  controls
+                />
+              ) : (
+                <div className="rounded-xl border border-border bg-muted/40 p-6 text-sm text-muted-foreground">
+                  Free preview:{" "}
+                  <Link
+                    href={
+                      enrolled || trailerLesson.isPreview
+                        ? `/learn/${course.slug}/${trailerLesson.id}`
+                        : `/login?callbackUrl=/courses/${course.slug}`
+                    }
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {trailerLesson.title}
+                  </Link>
+                </div>
+              )}
             </section>
-          </div>
+          )}
 
-          <div>
-            <Card className="sticky top-20">
-              <CardContent className="p-6">
-                <p className="text-3xl font-bold">
-                  {course.priceInPaise === 0
-                    ? "Free"
-                    : formatPrice(course.priceInPaise)}
-                </p>
-                <ul className="mt-4 space-y-2 text-sm text-slate-600">
+          <section className="rounded-xl border border-border bg-card p-6">
+            <h2 className="text-xl font-bold">What you’ll learn</h2>
+            <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+              {outcomes.map((item) => (
+                <li key={item} className="flex gap-2 text-sm">
+                  <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
+            <CourseCurriculum
+              courseSlug={course.slug}
+              enrolled={enrolled}
+              sections={course.sections.map((s) => ({
+                id: s.id,
+                title: s.title,
+                lessons: s.lessons.map((l) => ({
+                  id: l.id,
+                  title: l.title,
+                  type: l.type ?? "VIDEO",
+                  duration: l.duration,
+                  isPreview: l.isPreview,
+                })),
+              }))}
+            />
+          </section>
+
+          <section className="rounded-xl border border-border bg-card p-6">
+            <h2 className="text-xl font-bold">Requirements</h2>
+            <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+              {requirements.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="rounded-xl border border-border bg-card p-6">
+            <h2 className="text-xl font-bold">Description</h2>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+              {course.description}
+            </p>
+          </section>
+
+          <section className="rounded-xl border border-border bg-card p-6">
+            <h2 className="text-xl font-bold">Instructor</h2>
+            <div className="mt-4 flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20 text-lg font-semibold text-primary-foreground">
+                {course.instructor.name
+                  .split(" ")
+                  .map((p) => p[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase()}
+              </div>
+              <div>
+                <p className="font-semibold">{course.instructor.name}</p>
+                <p className="text-sm text-muted-foreground">Course instructor</p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* Sticky purchase card */}
+        <div className="lg:sticky lg:top-20 lg:self-start">
+          <Card className="overflow-hidden shadow-lg">
+            <div className="relative aspect-video bg-muted">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={course.thumbnail}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <CardContent className="space-y-4 p-5">
+              <p className="text-3xl font-bold">
+                {course.priceInPaise === 0
+                  ? "Free"
+                  : formatPrice(course.priceInPaise)}
+              </p>
+
+              {enrolled && resumeLessonId ? (
+                <Button size="lg" className="w-full" asChild>
+                  <Link href={`/learn/${course.slug}/${resumeLessonId}`}>
+                    {progress > 0 ? "Continue learning" : "Go to course"}
+                  </Link>
+                </Button>
+              ) : session?.user ? (
+                <CheckoutButton
+                  courseId={course.id}
+                  courseTitle={course.title}
+                  priceInPaise={course.priceInPaise}
+                  userName={session.user.name ?? undefined}
+                  userEmail={session.user.email ?? undefined}
+                />
+              ) : (
+                <Button size="lg" className="w-full" asChild>
+                  <Link href={`/login?callbackUrl=/courses/${course.slug}`}>
+                    Log in to enroll
+                  </Link>
+                </Button>
+              )}
+
+              <p className="text-center text-xs text-muted-foreground">
+                Full lifetime access · Progress tracking
+              </p>
+
+              <div>
+                <p className="text-sm font-semibold">This course includes:</p>
+                <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
                   <li className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    {allLessons.length} on-demand lessons
+                    <MonitorPlay className="h-4 w-4 text-foreground" />
+                    {videoCount} video lessons
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    Lifetime access
+                    <FileText className="h-4 w-4 text-foreground" />
+                    {articleCount} reading articles
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    Progress tracking
+                    <Film className="h-4 w-4 text-foreground" />
+                    {pdfCount} PDF resources
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-foreground" />
+                    {formatDuration(totalDuration)} on-demand content
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Award className="h-4 w-4 text-foreground" />
+                    Completion progress tracking
                   </li>
                 </ul>
-
-                <div className="mt-6">
-                  {enrolled && firstLesson ? (
-                    <Button size="lg" className="w-full" asChild>
-                      <Link href={`/learn/${course.slug}/${firstLesson.id}`}>
-                        Continue Learning
-                      </Link>
-                    </Button>
-                  ) : session?.user ? (
-                    <CheckoutButton
-                      courseId={course.id}
-                      courseTitle={course.title}
-                      priceInPaise={course.priceInPaise}
-                      userName={session.user.name ?? undefined}
-                      userEmail={session.user.email ?? undefined}
-                    />
-                  ) : (
-                    <Button size="lg" className="w-full" asChild>
-                      <Link href={`/login?callbackUrl=/courses/${course.slug}`}>
-                        Login to Enroll
-                      </Link>
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
