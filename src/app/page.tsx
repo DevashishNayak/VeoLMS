@@ -1,65 +1,92 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Suspense } from "react";
+import { ArrowRight, Play, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CourseCard } from "@/components/course/course-card";
+import { getCoursesWithMeta, getFeaturedCourses } from "@/lib/courses";
 
-export default function Home() {
+export default async function HomePage() {
+  const [featured, recent] = await Promise.all([
+    getFeaturedCourses(),
+    getCoursesWithMeta(),
+  ]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div>
+      <section className="relative overflow-hidden bg-gradient-to-br from-violet-700 via-violet-600 to-indigo-700 text-white">
+        <div className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
+          <div className="max-w-2xl">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-sm backdrop-blur">
+              <Sparkles className="h-4 w-4" />
+              VeoLMS Core Team Challenge
+            </div>
+            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+              Learn skills that move your career forward
+            </h1>
+            <p className="mt-6 text-lg text-violet-100">
+              Explore expert-led courses in web development. Preview lessons for
+              free, enroll with secure payments, and learn at your own pace.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-4">
+              <Button size="lg" className="bg-white text-violet-700 hover:bg-violet-50" asChild>
+                <Link href="/courses">
+                  Browse Courses <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-white/40 text-white hover:bg-white/10"
+                asChild
+              >
+                <Link href="/register">Start Learning Free</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="mb-8 flex items-end justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Featured Courses</h2>
+            <p className="mt-1 text-slate-600">Hand-picked courses to get you started</p>
+          </div>
+          <Link href="/courses" className="text-sm font-medium text-violet-700 hover:underline">
+            View all
+          </Link>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {featured.map((course) => (
+            <CourseCard key={course.id} course={course} />
+          ))}
+        </div>
+      </section>
+
+      <section className="border-t border-slate-200 bg-white py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <h2 className="mb-8 text-2xl font-bold text-slate-900">All Courses</h2>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {recent.slice(0, 6).map((course) => (
+              <CourseCard key={course.id} course={course} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-slate-900 py-16 text-white">
+        <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
+          <Play className="mx-auto mb-4 h-12 w-12 text-violet-400" />
+          <h2 className="text-2xl font-bold">Ready to start learning?</h2>
+          <p className="mx-auto mt-2 max-w-lg text-slate-400">
+            Join thousands of learners. Preview courses before you buy and track
+            your progress as you go.
           </p>
+          <Button size="lg" className="mt-6" asChild>
+            <Link href="/register">Create Free Account</Link>
+          </Button>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </section>
     </div>
   );
 }
