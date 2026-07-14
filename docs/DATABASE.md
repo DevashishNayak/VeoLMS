@@ -1,48 +1,51 @@
-# Database environments
+# Database — matches Vercel’s 3 environments
 
-## Model (recommended)
+Vercel has **three** environments. Neon has **three** matching branches:
 
-**One Neon project**, multiple **branches**.  
-**One Vercel project**, Production vs Preview.
+| Vercel environment | Neon branch | Who uses it |
+|--------------------|-------------|-------------|
+| **Production** | `main` | Live site https://veo-lms.vercel.app |
+| **Preview** | `preview` | Branch/PR Preview URLs (testers) |
+| **Development** | `development` | Local `npm run dev` (+ `vercel env pull`) |
 
-| Where | Neon branch |
-|-------|-------------|
-| Local (`npm run dev`) | `staging` |
-| Vercel Preview (`staging` / `develop` / PRs) | `staging` |
-| Vercel Production (`main` → https://veo-lms.vercel.app) | `main` |
+```
+Vercel Production  ──►  Neon main
+Vercel Preview     ──►  Neon preview
+Vercel Development ──►  Neon development   ← your laptop .env
+```
 
-Production stays isolated. Local and Preview share staging so you don’t recreate data.
+Ignore any leftover Neon branch named `staging` if it still appears in the console — it is unused.
 
-See also [DEPLOYMENTS.md](./DEPLOYMENTS.md).
+## Local setup
 
-## Why not “switch” production to stage?
+`.env` should point at Neon **`development`** (already configured).
 
-Changing Vercel’s Production Branch or pointing local `.env` at Neon `main` mixes test data with live data. Prefer:
+```bash
+npm run dev
+```
 
-- code path: git branch  
-- data path: Neon branch  
+## Tester workflow
 
-## Create another Neon environment
+1. Push a non-`main` branch (e.g. `staging` or a feature branch)
+2. Vercel creates a **Preview** deployment
+3. Send the Preview URL to the tester  
+   → that app uses Neon **`preview`**
+
+Production stays on Neon **`main`**.
+
+See [DEPLOYMENTS.md](./DEPLOYMENTS.md).
+
+## Create another Neon branch later
 
 ```bash
 neonctl branches create \
   --project-id lucky-glitter-50126763 \
   --org-id org-calm-glade-51982106 \
   --name qa \
-  --parent main
-
-neonctl connection-string qa \
-  --project-id lucky-glitter-50126763 \
-  --org-id org-calm-glade-51982106
+  --parent preview
 ```
-
-Then either:
-
-- set that URL as Vercel **Preview** `DATABASE_URL`, or  
-- use Neon ← GitHub integration for a DB branch per PR
 
 ## Safety
 
-- Never use Neon `main` in local `.env` for daily work  
-- Never seed production unless intentional  
-- Prefer Neon branches over new Neon projects  
+- Do not put Neon `main` in local `.env` for daily work  
+- Do not seed production unless intentional  
