@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { courseSchema } from "@/lib/validations";
 import { slugify } from "@/lib/utils";
+import { pageMeta, parseListQuery } from "@/lib/admin-query";
+import type { Prisma } from "@prisma/client";
 
 async function requireAdmin() {
   const session = await auth();
@@ -12,19 +14,60 @@ async function requireAdmin() {
   return session;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await requireAdmin();
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const courses = await prisma.course.findMany({
-    include: {
-      instructor: { select: { name: true } },
-      sections: { include: { lessons: true } },
-      _count: { select: { enrollments: true } },
-    },
-    orderBy: { createdAt: "desc" },
+  const url = new URL(request.url);
+  const { page, pageSize, q, skip } = parseListQuery(url);
+  const published = url.searchParams.get("published"); // all | true | false
+  const featured = url.searchParams.get("featured"); // all | true | false
+  const forSelect = url.searchParams.get("forSelect") === "1";
+
+  if (forSelect) {
+    const courses = await prisma.course.findMany({
+      select: { id: true, title: true, slug: true },
+      orderBy: { title: "asc" },
+      take: 500,
+    });
+    return NextResponse.json({ courses });
+  }
+
+  const where: Prisma.CourseWhereInput = {};
+  if (q) {
+    where.OR = [
+      { title: { contains: q, mode: "insensitive" } },
+      { slug: { contains: q, mode: "insensitive" } },
+      { description: { contains: q, mode: "insensitive" } },
+    ];
+  }
+  if (published === "true") where.published = true;
+  if (published === "false") where.published = false;
+  if (featured === "true") where.featured = true;
+  if (featured === "false") where.featured = false;
+
+  const [total, courses] = await Promise.all([
+    prisma.course.count({ where }),
+    prisma.course.findMany({
+      where,
+      include: {
+        instructor: { select: { name: true } },
+        sections: {
+          orderBy: { order: "asc" },
+          include: { lessons: { orderBy: { order: "asc" } } },
+        },
+        _count: { select: { enrollments: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize,
+    }),
+  ]);
+
+  return NextResponse.json({
+    courses,
+    meta: pageMeta(total, page, pageSize),
   });
-  return NextResponse.json({ courses });
 }
 
 export async function POST(request: Request) {

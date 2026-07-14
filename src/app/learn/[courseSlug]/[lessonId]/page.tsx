@@ -77,7 +77,7 @@ export default async function LearnPage({ params }: PageProps) {
           {nextLesson && (
             <Link
               href={`/learn/${courseSlug}/${nextLesson.id}`}
-              className="mt-6 inline-flex items-center gap-2 text-violet-700 hover:underline"
+              className="mt-6 inline-flex items-center gap-2 text-primary hover:underline"
             >
               Next: {nextLesson.title} →
             </Link>
@@ -106,7 +106,7 @@ export default async function LearnPage({ params }: PageProps) {
                     }
                     className={`flex items-center gap-2 border-b border-slate-100 px-4 py-3 text-sm ${
                       isCurrent
-                        ? "bg-violet-50 text-violet-700"
+                        ? "bg-primary/10 text-primary"
                         : accessible
                           ? "hover:bg-slate-50"
                           : "text-slate-400"

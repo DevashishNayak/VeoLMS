@@ -208,7 +208,7 @@ export function VideoPlayer({
       >
         <div className="mb-2 h-1 overflow-hidden rounded-full bg-white/30">
           <div
-            className="h-full bg-violet-500 transition-all"
+            className="h-full bg-primary/100 transition-all"
             style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }}
           />
         </div>

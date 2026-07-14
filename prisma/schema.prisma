@@ -39,7 +39,7 @@ model Course {
   title        String
   slug         String       @unique
   description  String       @db.Text
-  thumbnail    String
+  thumbnail    String       @db.Text
   priceInPaise Int
   featured     Boolean      @default(false)
   published    Boolean      @default(true)

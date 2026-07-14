@@ -22,11 +22,11 @@ export async function GET() {
     }),
     prisma.enrollment.findMany({
       include: {
-        user: { select: { name: true, email: true } },
-        course: { select: { title: true } },
+        user: { select: { id: true, name: true, email: true } },
+        course: { select: { id: true, title: true } },
       },
       orderBy: { enrolledAt: "desc" },
-      take: 50,
+      take: 100,
     }),
   ]);
 

@@ -23,7 +23,17 @@ export const courseSchema = z.object({
     .string()
     .min(10, "Description must be at least 10 characters")
     .max(10000),
-  thumbnail: z.string().url("Thumbnail must be a valid URL"),
+  thumbnail: z
+    .string()
+    .min(1, "Thumbnail is required")
+    .refine(
+      (v) =>
+        v.startsWith("https://") ||
+        v.startsWith("http://") ||
+        v.startsWith("data:image/"),
+      "Thumbnail must be an image URL or uploaded image"
+    )
+    .refine((v) => v.length <= 1_500_000, "Image is too large — try a smaller file"),
   priceInPaise: z.coerce.number().int().min(0).max(100000000),
   featured: z.boolean().optional(),
   published: z.boolean().optional(),
@@ -31,19 +41,19 @@ export const courseSchema = z.object({
 
 export const sectionSchema = z.object({
   title: z.string().min(1).max(200),
-  order: z.number().int().min(0),
+  order: z.coerce.number().int().min(0).optional(),
 });
 
 export const lessonSchema = z.object({
   title: z.string().min(1).max(200),
-  description: z.string().max(5000).optional(),
+  description: z.string().max(5000).optional().nullable(),
   youtubeId: z
     .string()
     .min(6)
     .max(20)
     .regex(/^[a-zA-Z0-9_-]+$/, "Invalid YouTube video ID"),
-  duration: z.number().int().min(0).optional(),
-  order: z.number().int().min(0),
+  duration: z.coerce.number().int().min(0).optional(),
+  order: z.coerce.number().int().min(0).optional(),
   isPreview: z.boolean().optional(),
 });
 

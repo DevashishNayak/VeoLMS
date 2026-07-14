@@ -1,39 +1,114 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { lessonSchema } from "@/lib/validations";
+import { forbidden, requireAdminSession } from "@/lib/admin-auth";
+import { pageMeta, parseListQuery } from "@/lib/admin-query";
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 
 const createLessonSchema = lessonSchema.extend({
   sectionId: z.string().cuid(),
 });
 
-export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+export async function GET(request: Request) {
+  const session = await requireAdminSession();
+  if (!session) return forbidden();
+
+  const url = new URL(request.url);
+  const { page, pageSize, q, skip } = parseListQuery(url);
+  const courseId = url.searchParams.get("courseId") || undefined;
+  const preview = url.searchParams.get("preview"); // all | true | false
+  const forSelect = url.searchParams.get("forSelect") === "1";
+
+  if (forSelect) {
+    const lessons = await prisma.lesson.findMany({
+      include: {
+        section: {
+          select: {
+            title: true,
+            course: { select: { title: true } },
+          },
+        },
+      },
+      orderBy: { title: "asc" },
+      take: 500,
+    });
+    return NextResponse.json({ lessons });
   }
+
+  const where: Prisma.LessonWhereInput = {};
+  if (courseId) where.section = { courseId };
+  if (preview === "true") where.isPreview = true;
+  if (preview === "false") where.isPreview = false;
+  if (q) {
+    where.OR = [
+      { title: { contains: q, mode: "insensitive" } },
+      { youtubeId: { contains: q, mode: "insensitive" } },
+      { section: { title: { contains: q, mode: "insensitive" } } },
+      { section: { course: { title: { contains: q, mode: "insensitive" } } } },
+    ];
+  }
+
+  const [total, lessons] = await Promise.all([
+    prisma.lesson.count({ where }),
+    prisma.lesson.findMany({
+      where,
+      include: {
+        section: {
+          select: {
+            id: true,
+            title: true,
+            course: { select: { id: true, title: true } },
+          },
+        },
+      },
+      orderBy: [{ sectionId: "asc" }, { order: "asc" }],
+      skip,
+      take: pageSize,
+    }),
+  ]);
+
+  return NextResponse.json({
+    lessons,
+    meta: pageMeta(total, page, pageSize),
+  });
+}
+
+export async function POST(request: Request) {
+  const session = await requireAdminSession();
+  if (!session) return forbidden();
 
   const body = await request.json();
   const parsed = createLessonSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid data" }, { status: 400 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid data" },
+      { status: 400 }
+    );
   }
 
-  const lesson = await prisma.lesson.create({ data: parsed.data });
+  const { sectionId, title, youtubeId, description, duration, order, isPreview } =
+    parsed.data;
+
+  const nextOrder =
+    order ??
+    ((
+      await prisma.lesson.aggregate({
+        where: { sectionId },
+        _max: { order: true },
+      })
+    )._max.order ?? -1) + 1;
+
+  const lesson = await prisma.lesson.create({
+    data: {
+      sectionId,
+      title,
+      youtubeId,
+      description: description ?? null,
+      duration: duration ?? 0,
+      order: nextOrder,
+      isPreview: isPreview ?? false,
+    },
+  });
   return NextResponse.json({ lesson }, { status: 201 });
-}
-
-export async function DELETE(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const { searchParams } = new URL(request.url);
-  const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-
-  await prisma.lesson.delete({ where: { id } });
-  return NextResponse.json({ success: true });
 }

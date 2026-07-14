@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookOpen, CheckCircle, Clock, Play, User } from "lucide-react";
@@ -37,7 +36,7 @@ export default async function CourseDetailPage({ params }: PageProps) {
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
           <div className="grid gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2">
-              <p className="text-sm font-medium text-violet-300">Course</p>
+              <p className="text-sm font-medium text-primary-foreground/80">Course</p>
               <h1 className="mt-2 text-3xl font-bold sm:text-4xl">{course.title}</h1>
               <p className="mt-4 text-slate-300">{course.description}</p>
               <div className="mt-6 flex flex-wrap gap-4 text-sm text-slate-400">
@@ -55,13 +54,12 @@ export default async function CourseDetailPage({ params }: PageProps) {
                 </span>
               </div>
             </div>
-            <div className="relative aspect-video overflow-hidden rounded-xl lg:aspect-auto lg:h-48">
-              <Image
+            <div className="relative aspect-video overflow-hidden rounded-xl bg-muted lg:aspect-auto lg:h-48">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={course.thumbnail}
                 alt={course.title}
-                fill
-                className="object-cover"
-                priority
+                className="h-full w-full object-cover"
               />
             </div>
           </div>
@@ -96,7 +94,7 @@ export default async function CourseDetailPage({ params }: PageProps) {
                           className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-sm"
                         >
                           <div className="flex items-center gap-2">
-                            <Play className="h-4 w-4 text-violet-600" />
+                            <Play className="h-4 w-4 text-primary" />
                             <span>{lesson.title}</span>
                             {lesson.isPreview && (
                               <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700">

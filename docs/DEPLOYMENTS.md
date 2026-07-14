@@ -4,7 +4,7 @@ One Vercel project. Two sides only:
 
 | | Production | Non-production |
 |--|------------|----------------|
-| **GitHub** | `main` (default) | `dev` (+ any feature branches) |
+| **GitHub** | `main` | `dev` (default) + feature branches |
 | **Vercel** | **Production** | **Preview** |
 | **Neon** | `main` | `dev` |
 | **URL** | https://veo-lms.vercel.app | Preview URL in Deployments |

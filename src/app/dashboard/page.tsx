@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getCourseProgress } from "@/lib/access";
@@ -57,10 +56,10 @@ export default async function DashboardPage() {
       <p className="mt-1 text-slate-600">Continue your learning journey</p>
 
       {continueLearning && (
-        <Card className="mt-8 border-violet-200 bg-violet-50">
+        <Card className="mt-8 border-primary/30 bg-primary/10">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Play className="h-5 w-5 text-violet-600" />
+              <Play className="h-5 w-5 text-primary" />
               Continue Learning
             </CardTitle>
           </CardHeader>
@@ -104,12 +103,12 @@ export default async function DashboardPage() {
                 .sort((a, b) => a.order - b.order)[0];
               return (
                 <Card key={course.id} className="overflow-hidden">
-                  <div className="relative aspect-video bg-slate-100">
-                    <Image
+                  <div className="relative aspect-video bg-muted">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
                       src={course.thumbnail}
                       alt={course.title}
-                      fill
-                      className="object-cover"
+                      className="h-full w-full object-cover"
                     />
                   </div>
                   <CardContent className="p-4">
@@ -124,7 +123,7 @@ export default async function DashboardPage() {
                       </div>
                       <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
                         <div
-                          className="h-full bg-violet-600 transition-all"
+                          className="h-full bg-primary transition-all"
                           style={{ width: `${progress}%` }}
                         />
                       </div>
@@ -155,7 +154,7 @@ export default async function DashboardPage() {
               <Link
                 key={p.id}
                 href={`/learn/${p.lesson.section.course.slug}/${p.lesson.id}`}
-                className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 hover:border-violet-300"
+                className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 hover:border-primary/40"
               >
                 <div>
                   <p className="font-medium">{p.lesson.title}</p>
