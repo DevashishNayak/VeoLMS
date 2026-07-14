@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { BookOpen } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import {
 } from "@/components/admin/table-cells";
 import {
   AdminAlert,
+  AdminClearFilters,
   AdminPageHeader,
   AdminSearch,
   AdminTableShell,
@@ -30,6 +32,11 @@ import {
 } from "@/components/admin/page-kit";
 import { useAdminListQuery } from "@/hooks/use-admin-list-query";
 import type { PageMeta } from "@/lib/admin-query";
+import {
+  adminKeys,
+  fetchAdminJson,
+  useInvalidateAdmin,
+} from "@/lib/admin-cache";
 import { apiJson, formatPrice } from "@/components/admin/types";
 
 type PaymentRow = {
@@ -43,20 +50,27 @@ type PaymentRow = {
   course: { id: string; title: string };
 };
 
-const defaultMeta: PageMeta = { page: 1, pageSize: 10, total: 0, totalPages: 1 };
+const defaultMeta: PageMeta = {
+  page: 1,
+  pageSize: 10,
+  total: 0,
+  totalPages: 1,
+};
 
 export default function AdminPaymentsPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+    <Suspense
+      fallback={
+        <div className="p-6 text-sm text-muted-foreground">Loading…</div>
+      }
+    >
       <AdminPaymentsPageInner />
     </Suspense>
   );
 }
 
 function AdminPaymentsPageInner() {
-  const [rows, setRows] = useState<PaymentRow[]>([]);
-  const [meta, setMeta] = useState<PageMeta>(defaultMeta);
-  const [loading, setLoading] = useState(true);
+  const invalidate = useInvalidateAdmin();
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [editing, setEditing] = useState<PaymentRow | null>(null);
@@ -76,35 +90,40 @@ function AdminPaymentsPageInner() {
     setPage,
     setPageSize,
     setFilter,
+    hasActiveFilters,
+    clearFilters,
+    clearSearch,
   } = useAdminListQuery({
     filterKeys: ["status"],
   });
   const status = getFilter("status");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({
-      page: String(page),
-      pageSize: String(pageSize),
-    });
-    if (q) params.set("q", q);
-    if (status !== "all") params.set("status", status);
+  const listParams = { page, pageSize, q, status };
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error: queryError,
+  } = useQuery({
+    queryKey: adminKeys.payments(listParams),
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize),
+      });
+      if (q) params.set("q", q);
+      if (status !== "all") params.set("status", status);
+      return fetchAdminJson<{ payments: PaymentRow[]; meta: PageMeta }>(
+        `/api/admin/payments?${params}`,
+        { signal },
+      );
+    },
+  });
 
-    const res = await apiJson<{ payments: PaymentRow[]; meta: PageMeta }>(
-      `/api/admin/payments?${params}`
-    );
-    if (res.ok) {
-      setRows(res.data.payments);
-      setMeta(res.data.meta);
-    } else {
-      setError(res.error);
-    }
-    setLoading(false);
-  }, [page, pageSize, q, status]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const rows = data?.payments ?? [];
+  const meta = data?.meta ?? defaultMeta;
+  const loading = isLoading;
+  const alertError = error || (queryError ? queryError.message : "");
 
   function openEdit(p: PaymentRow) {
     setEditing(p);
@@ -133,15 +152,17 @@ function AdminPaymentsPageInner() {
     if (!res.ok) return setError(res.error);
     setMessage("Payment updated");
     setEditing(null);
-    await load();
+    invalidate("payments");
   }
 
   async function remove(p: PaymentRow) {
     if (!confirm(`Delete payment ${p.razorpayOrderId}?`)) return;
-    const res = await apiJson(`/api/admin/payments?id=${p.id}`, { method: "DELETE" });
+    const res = await apiJson(`/api/admin/payments?id=${p.id}`, {
+      method: "DELETE",
+    });
     if (!res.ok) return setError(res.error);
     setMessage("Payment deleted");
-    await load();
+    invalidate("payments");
   }
 
   function statusVariant(s: PaymentRow["status"]) {
@@ -156,29 +177,32 @@ function AdminPaymentsPageInner() {
         title="Payments"
         description="View and update Razorpay payment records."
       />
-      <AdminAlert error={error} message={message} />
+      <AdminAlert error={alertError} message={message} />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="min-w-[200px] flex-1">
-          <AdminSearch
-            value={query}
-            onChange={setQuery}
-            placeholder="Search user, course, order ID…"
-          />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <AdminSearch
+          value={query}
+          onChange={setQuery}
+          onClear={clearSearch}
+          placeholder="Search user, course, order ID…"
+        />
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <AdminClearFilters show={hasActiveFilters} onClear={clearFilters} />
+          <Select
+            className="h-10 w-full sm:w-40"
+            value={status}
+            onChange={(e) => setFilter("status", e.target.value)}
+          >
+            <option value="all">All status</option>
+            <option value="PENDING">Pending</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="FAILED">Failed</option>
+          </Select>
         </div>
-        <Select
-          className="h-10 w-full sm:w-40"
-          value={status}
-          onChange={(e) => setFilter("status", e.target.value)}
-        >
-          <option value="all">All status</option>
-          <option value="PENDING">Pending</option>
-          <option value="COMPLETED">Completed</option>
-          <option value="FAILED">Failed</option>
-        </Select>
       </div>
 
       <AdminTableShell
+        refreshing={isFetching && !isLoading}
         footer={
           <AdminPagination
             meta={meta}
@@ -202,13 +226,19 @@ function AdminPaymentsPageInner() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={7}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   Loading…
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={7}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   No payments match your filters
                 </TableCell>
               </TableRow>
@@ -254,14 +284,21 @@ function AdminPaymentsPageInner() {
         </Table>
       </AdminTableShell>
 
-      <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit payment">
+      <Modal
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        title="Edit payment"
+      >
         <form onSubmit={save} className="space-y-3">
           <div>
             <Label>Status</Label>
             <Select
               value={form.status}
               onChange={(e) =>
-                setForm({ ...form, status: e.target.value as PaymentRow["status"] })
+                setForm({
+                  ...form,
+                  status: e.target.value as PaymentRow["status"],
+                })
               }
             >
               <option value="PENDING">PENDING</option>
@@ -275,18 +312,26 @@ function AdminPaymentsPageInner() {
               type="number"
               min={0}
               value={form.amountInPaise}
-              onChange={(e) => setForm({ ...form, amountInPaise: Number(e.target.value) })}
+              onChange={(e) =>
+                setForm({ ...form, amountInPaise: Number(e.target.value) })
+              }
             />
           </div>
           <div>
             <Label>Razorpay payment ID</Label>
             <Input
               value={form.razorpayPaymentId}
-              onChange={(e) => setForm({ ...form, razorpayPaymentId: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, razorpayPaymentId: e.target.value })
+              }
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setEditing(null)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEditing(null)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>

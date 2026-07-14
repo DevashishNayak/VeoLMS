@@ -16,9 +16,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
+import { FileUploadField } from "@/components/admin/file-upload-field";
 import { cn } from "@/lib/utils";
 import {
   apiJson,
@@ -28,11 +30,16 @@ import {
   type AdminLesson,
   type AdminSection,
 } from "@/components/admin/types";
+import { useInvalidateAdmin } from "@/lib/admin-cache";
 
 type LessonForm = {
   title: string;
   description: string;
+  type: "VIDEO" | "TEXT" | "PDF";
   youtubeId: string;
+  videoUrl: string;
+  content: string;
+  pdfUrl: string;
   duration: number;
   isPreview: boolean;
   order?: number;
@@ -41,7 +48,11 @@ type LessonForm = {
 const emptyLesson: LessonForm = {
   title: "",
   description: "",
+  type: "VIDEO",
   youtubeId: "",
+  videoUrl: "",
+  content: "",
+  pdfUrl: "",
   duration: 600,
   isPreview: false,
 };
@@ -49,6 +60,7 @@ const emptyLesson: LessonForm = {
 export default function AdminCourseDetailPage() {
   const params = useParams<{ id: string }>();
   const courseId = params.id;
+  const invalidate = useInvalidateAdmin();
 
   const [tab, setTab] = useState<"details" | "curriculum">("curriculum");
   const [course, setCourse] = useState<AdminCourse | null>(null);
@@ -141,6 +153,7 @@ export default function AdminCourseDetailPage() {
     }
     setMessage("Course details saved");
     await load();
+    invalidate("courses");
   }
 
   async function saveSection(e: React.FormEvent) {
@@ -180,6 +193,7 @@ export default function AdminCourseDetailPage() {
 
     setSectionModal(null);
     await load();
+    invalidate("courses", "sections", "lessons");
   }
 
   async function deleteSection(section: AdminSection) {
@@ -200,6 +214,7 @@ export default function AdminCourseDetailPage() {
     }
     setMessage("Section deleted");
     await load();
+    invalidate("courses", "sections", "lessons");
   }
 
   async function saveLesson(e: React.FormEvent) {
@@ -212,7 +227,11 @@ export default function AdminCourseDetailPage() {
     const payload = {
       title: lessonForm.title,
       description: lessonForm.description || null,
+      type: lessonForm.type,
       youtubeId: lessonForm.youtubeId,
+      videoUrl: lessonForm.videoUrl,
+      content: lessonForm.content,
+      pdfUrl: lessonForm.pdfUrl,
       duration: Number(lessonForm.duration),
       isPreview: lessonForm.isPreview,
       order: lessonForm.order,
@@ -248,6 +267,7 @@ export default function AdminCourseDetailPage() {
     setLessonModal(null);
     setLessonForm(emptyLesson);
     await load();
+    invalidate("courses", "sections", "lessons");
   }
 
   async function deleteLesson(lesson: AdminLesson) {
@@ -262,6 +282,7 @@ export default function AdminCourseDetailPage() {
     }
     setMessage("Lesson deleted");
     await load();
+    invalidate("courses", "sections", "lessons");
   }
 
   if (loading) {
@@ -556,7 +577,7 @@ export default function AdminCourseDetailPage() {
                               <tr>
                                 <th className="px-3 py-2 font-medium">#</th>
                                 <th className="px-3 py-2 font-medium">Lesson</th>
-                                <th className="px-3 py-2 font-medium">YouTube</th>
+                                <th className="px-3 py-2 font-medium">Type</th>
                                 <th className="px-3 py-2 font-medium">Length</th>
                                 <th className="px-3 py-2 font-medium">Access</th>
                                 <th className="px-3 py-2 text-right font-medium">
@@ -573,8 +594,10 @@ export default function AdminCourseDetailPage() {
                                   <td className="px-3 py-2 font-medium">
                                     {lesson.title}
                                   </td>
-                                  <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                                    {lesson.youtubeId}
+                                  <td className="px-3 py-2">
+                                    <Badge variant="secondary">
+                                      {lesson.type}
+                                    </Badge>
                                   </td>
                                   <td className="px-3 py-2 tabular-nums text-muted-foreground">
                                     {lesson.duration > 0
@@ -599,7 +622,11 @@ export default function AdminCourseDetailPage() {
                                             title: lesson.title,
                                             description:
                                               lesson.description ?? "",
-                                            youtubeId: lesson.youtubeId,
+                                            type: lesson.type,
+                                            youtubeId: lesson.youtubeId ?? "",
+                                            videoUrl: lesson.videoUrl ?? "",
+                                            content: lesson.content ?? "",
+                                            pdfUrl: lesson.pdfUrl ?? "",
                                             duration: lesson.duration,
                                             isPreview: lesson.isPreview,
                                             order: lesson.order,
@@ -704,15 +731,87 @@ export default function AdminCourseDetailPage() {
             />
           </div>
           <div>
-            <Label>YouTube video ID</Label>
-            <Input
-              value={lessonForm.youtubeId}
+            <Label>Type</Label>
+            <Select
+              value={lessonForm.type}
               onChange={(e) =>
-                setLessonForm({ ...lessonForm, youtubeId: e.target.value })
+                setLessonForm({
+                  ...lessonForm,
+                  type: e.target.value as LessonForm["type"],
+                })
               }
-              required
-            />
+            >
+              <option value="VIDEO">Video</option>
+              <option value="TEXT">Text / Markdown</option>
+              <option value="PDF">PDF</option>
+            </Select>
           </div>
+          {lessonForm.type === "VIDEO" && (
+            <>
+              <div>
+                <Label>YouTube video ID</Label>
+                <Input
+                  value={lessonForm.youtubeId}
+                  onChange={(e) =>
+                    setLessonForm({ ...lessonForm, youtubeId: e.target.value })
+                  }
+                  placeholder="e.g. qz0aGYrrlhU"
+                />
+              </div>
+              <FileUploadField
+                label="Video file / URL"
+                kind="video"
+                value={lessonForm.videoUrl}
+                onChange={(videoUrl) =>
+                  setLessonForm({ ...lessonForm, videoUrl })
+                }
+                hint="Optional if a YouTube ID is set"
+              />
+              <div>
+                <Label>Notes (optional markdown)</Label>
+                <Textarea
+                  rows={3}
+                  value={lessonForm.content}
+                  onChange={(e) =>
+                    setLessonForm({ ...lessonForm, content: e.target.value })
+                  }
+                />
+              </div>
+            </>
+          )}
+          {lessonForm.type === "TEXT" && (
+            <div>
+              <Label>Content (markdown)</Label>
+              <Textarea
+                rows={8}
+                value={lessonForm.content}
+                onChange={(e) =>
+                  setLessonForm({ ...lessonForm, content: e.target.value })
+                }
+                required
+              />
+            </div>
+          )}
+          {lessonForm.type === "PDF" && (
+            <>
+              <FileUploadField
+                label="PDF file / URL"
+                kind="pdf"
+                value={lessonForm.pdfUrl}
+                onChange={(pdfUrl) => setLessonForm({ ...lessonForm, pdfUrl })}
+              />
+              <div>
+                <Label>Notes (optional markdown)</Label>
+                <Textarea
+                  rows={3}
+                  value={lessonForm.content}
+                  onChange={(e) =>
+                    setLessonForm({ ...lessonForm, content: e.target.value })
+                  }
+                />
+              </div>
+            </>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Duration (sec)</Label>

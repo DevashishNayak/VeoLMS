@@ -27,6 +27,7 @@ export default async function CourseDetailPage({ params }: PageProps) {
   const allLessons = course.sections.flatMap((s) => s.lessons);
   const previewLessons = allLessons.filter((l) => l.isPreview);
   const trailerLesson = previewLessons[0] ?? allLessons[0];
+  const trailerType = trailerLesson?.type ?? "VIDEO";
   const totalDuration = allLessons.reduce((a, l) => a + l.duration, 0);
   const firstLesson = allLessons[0];
 
@@ -72,10 +73,44 @@ export default async function CourseDetailPage({ params }: PageProps) {
             {trailerLesson && (
               <section>
                 <h2 className="mb-4 text-xl font-bold">Course Preview</h2>
-                <VideoPlayer
-                  youtubeId={trailerLesson.youtubeId}
-                  lessonId={trailerLesson.id}
-                />
+                {trailerType === "VIDEO" && trailerLesson.youtubeId ? (
+                  <VideoPlayer
+                    youtubeId={trailerLesson.youtubeId}
+                    lessonId={trailerLesson.id}
+                  />
+                ) : trailerType === "VIDEO" && trailerLesson.videoUrl ? (
+                  <video
+                    className="aspect-video w-full overflow-hidden rounded-xl bg-black"
+                    src={trailerLesson.videoUrl}
+                    controls
+                  />
+                ) : (
+                  <div className="rounded-xl border border-border bg-muted/40 p-6 text-sm text-muted-foreground">
+                    Preview this{" "}
+                    <span className="font-medium text-foreground">
+                      {String(trailerType).toLowerCase()}
+                    </span>{" "}
+                    lesson after starting the course
+                    {firstLesson ? (
+                      <>
+                        {" "}
+                        (
+                        <Link
+                          href={
+                            enrolled
+                              ? `/learn/${course.slug}/${trailerLesson.id}`
+                              : "#"
+                          }
+                          className="text-primary hover:underline"
+                        >
+                          {trailerLesson.title}
+                        </Link>
+                        )
+                      </>
+                    ) : null}
+                    .
+                  </div>
+                )}
               </section>
             )}
 
@@ -96,6 +131,9 @@ export default async function CourseDetailPage({ params }: PageProps) {
                           <div className="flex items-center gap-2">
                             <Play className="h-4 w-4 text-primary" />
                             <span>{lesson.title}</span>
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                              {lesson.type ?? "VIDEO"}
+                            </span>
                             {lesson.isPreview && (
                               <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700">
                                 Preview

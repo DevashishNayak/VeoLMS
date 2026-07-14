@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, Plus } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ import {
 } from "@/components/admin/table-cells";
 import {
   AdminAlert,
+  AdminClearFilters,
   AdminPageHeader,
   AdminSearch,
   AdminTableShell,
@@ -33,7 +35,16 @@ import {
 } from "@/components/admin/page-kit";
 import { useAdminListQuery } from "@/hooks/use-admin-list-query";
 import type { PageMeta } from "@/lib/admin-query";
-import { apiJson, formatPrice, type AdminCourse } from "@/components/admin/types";
+import {
+  adminKeys,
+  fetchAdminJson,
+  useInvalidateAdmin,
+} from "@/lib/admin-cache";
+import {
+  apiJson,
+  formatPrice,
+  type AdminCourse,
+} from "@/components/admin/types";
 
 const empty = {
   title: "",
@@ -44,20 +55,27 @@ const empty = {
   published: true,
 };
 
-const defaultMeta: PageMeta = { page: 1, pageSize: 10, total: 0, totalPages: 1 };
+const defaultMeta: PageMeta = {
+  page: 1,
+  pageSize: 10,
+  total: 0,
+  totalPages: 1,
+};
 
 export default function AdminCoursesPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+    <Suspense
+      fallback={
+        <div className="p-6 text-sm text-muted-foreground">Loading…</div>
+      }
+    >
       <AdminCoursesPageInner />
     </Suspense>
   );
 }
 
 function AdminCoursesPageInner() {
-  const [courses, setCourses] = useState<AdminCourse[]>([]);
-  const [meta, setMeta] = useState<PageMeta>(defaultMeta);
-  const [loading, setLoading] = useState(true);
+  const invalidate = useInvalidateAdmin();
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [open, setOpen] = useState(false);
@@ -73,37 +91,42 @@ function AdminCoursesPageInner() {
     setPage,
     setPageSize,
     setFilter,
+    hasActiveFilters,
+    clearFilters,
+    clearSearch,
   } = useAdminListQuery({
     filterKeys: ["published", "featured"],
   });
   const published = getFilter("published");
   const featured = getFilter("featured");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({
-      page: String(page),
-      pageSize: String(pageSize),
-    });
-    if (q) params.set("q", q);
-    if (published !== "all") params.set("published", published);
-    if (featured !== "all") params.set("featured", featured);
+  const listParams = { page, pageSize, q, published, featured };
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error: queryError,
+  } = useQuery({
+    queryKey: adminKeys.courses(listParams),
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize),
+      });
+      if (q) params.set("q", q);
+      if (published !== "all") params.set("published", published);
+      if (featured !== "all") params.set("featured", featured);
+      return fetchAdminJson<{ courses: AdminCourse[]; meta: PageMeta }>(
+        `/api/admin/courses?${params}`,
+        { signal },
+      );
+    },
+  });
 
-    const res = await apiJson<{ courses: AdminCourse[]; meta: PageMeta }>(
-      `/api/admin/courses?${params}`
-    );
-    if (res.ok) {
-      setCourses(res.data.courses);
-      setMeta(res.data.meta);
-    } else {
-      setError(res.error);
-    }
-    setLoading(false);
-  }, [page, pageSize, q, published, featured]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const courses = data?.courses ?? [];
+  const meta = data?.meta ?? defaultMeta;
+  const loading = isLoading;
+  const alertError = error || (queryError ? queryError.message : "");
 
   async function createCourse(e: React.FormEvent) {
     e.preventDefault();
@@ -116,14 +139,17 @@ function AdminCoursesPageInner() {
     }
     const res = await apiJson<{ course: AdminCourse }>("/api/admin/courses", {
       method: "POST",
-      body: JSON.stringify({ ...form, priceInPaise: Number(form.priceInPaise) }),
+      body: JSON.stringify({
+        ...form,
+        priceInPaise: Number(form.priceInPaise),
+      }),
     });
     setSaving(false);
     if (!res.ok) return setError(res.error);
     setMessage("Course created — open it to add sections and lessons");
     setOpen(false);
     setForm(empty);
-    await load();
+    invalidate("courses");
   }
 
   async function remove(id: string, title: string) {
@@ -131,7 +157,7 @@ function AdminCoursesPageInner() {
     const res = await apiJson(`/api/admin/courses/${id}`, { method: "DELETE" });
     if (!res.ok) return setError(res.error);
     setMessage("Course deleted");
-    await load();
+    invalidate("courses", "sections", "lessons");
   }
 
   return (
@@ -145,37 +171,40 @@ function AdminCoursesPageInner() {
           </Button>
         }
       />
-      <AdminAlert error={error} message={message} />
+      <AdminAlert error={alertError} message={message} />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="min-w-[200px] flex-1">
-          <AdminSearch
-            value={query}
-            onChange={setQuery}
-            placeholder="Search title, slug, description…"
-          />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <AdminSearch
+          value={query}
+          onChange={setQuery}
+          onClear={clearSearch}
+          placeholder="Search title, slug, description…"
+        />
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <AdminClearFilters show={hasActiveFilters} onClear={clearFilters} />
+          <Select
+            className="h-10 w-full sm:w-40"
+            value={published}
+            onChange={(e) => setFilter("published", e.target.value)}
+          >
+            <option value="all">All status</option>
+            <option value="true">Published</option>
+            <option value="false">Draft</option>
+          </Select>
+          <Select
+            className="h-10 w-full sm:w-40"
+            value={featured}
+            onChange={(e) => setFilter("featured", e.target.value)}
+          >
+            <option value="all">All featured</option>
+            <option value="true">Featured</option>
+            <option value="false">Not featured</option>
+          </Select>
         </div>
-        <Select
-          className="h-10 w-full sm:w-40"
-          value={published}
-          onChange={(e) => setFilter("published", e.target.value)}
-        >
-          <option value="all">All status</option>
-          <option value="true">Published</option>
-          <option value="false">Draft</option>
-        </Select>
-        <Select
-          className="h-10 w-full sm:w-40"
-          value={featured}
-          onChange={(e) => setFilter("featured", e.target.value)}
-        >
-          <option value="all">All featured</option>
-          <option value="true">Featured</option>
-          <option value="false">Not featured</option>
-        </Select>
       </div>
 
       <AdminTableShell
+        refreshing={isFetching && !isLoading}
         footer={
           <AdminPagination
             meta={meta}
@@ -198,19 +227,28 @@ function AdminCoursesPageInner() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={6}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   Loading…
                 </TableCell>
               </TableRow>
             ) : courses.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={6}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   No courses match your filters
                 </TableCell>
               </TableRow>
             ) : (
               courses.map((c) => {
-                const lessons = c.sections.reduce((n, s) => n + s.lessons.length, 0);
+                const lessons = c.sections.reduce(
+                  (n, s) => n + s.lessons.length,
+                  0,
+                );
                 return (
                   <TableRow key={c.id}>
                     <TableCell>
@@ -233,7 +271,9 @@ function AdminCoursesPageInner() {
                           </span>
                         </p>
                         <p>
-                          <span className="font-medium tabular-nums">{lessons}</span>{" "}
+                          <span className="font-medium tabular-nums">
+                            {lessons}
+                          </span>{" "}
                           <span className="text-muted-foreground">
                             lesson{lessons === 1 ? "" : "s"}
                           </span>
@@ -252,7 +292,9 @@ function AdminCoursesPageInner() {
                         <Badge variant={c.published ? "success" : "secondary"}>
                           {c.published ? "Published" : "Draft"}
                         </Badge>
-                        {c.featured && <Badge variant="featured">Featured</Badge>}
+                        {c.featured && (
+                          <Badge variant="featured">Featured</Badge>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -260,7 +302,10 @@ function AdminCoursesPageInner() {
                     </TableCell>
                     <TableCell>
                       <RowActions>
-                        <EditAction href={`/admin/courses/${c.id}`} label="Edit" />
+                        <EditAction
+                          href={`/admin/courses/${c.id}`}
+                          label="Edit"
+                        />
                         <IconAction
                           label="View public page"
                           href={`/courses/${c.slug}`}
@@ -281,7 +326,12 @@ function AdminCoursesPageInner() {
         </Table>
       </AdminTableShell>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Create course" className="max-w-xl">
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Create course"
+        className="max-w-xl"
+      >
         <form onSubmit={createCourse} className="space-y-4">
           <div>
             <Label>Title</Label>
@@ -296,7 +346,9 @@ function AdminCoursesPageInner() {
             <Label>Description</Label>
             <Textarea
               value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, description: e.target.value })
+              }
               required
               minLength={10}
               rows={3}
@@ -326,7 +378,9 @@ function AdminCoursesPageInner() {
                 type="checkbox"
                 className="size-4 cursor-pointer accent-primary"
                 checked={form.featured}
-                onChange={(e) => setForm({ ...form, featured: e.target.checked })}
+                onChange={(e) =>
+                  setForm({ ...form, featured: e.target.checked })
+                }
               />
               Featured
             </label>
@@ -335,13 +389,19 @@ function AdminCoursesPageInner() {
                 type="checkbox"
                 className="size-4 cursor-pointer accent-primary"
                 checked={form.published}
-                onChange={(e) => setForm({ ...form, published: e.target.checked })}
+                onChange={(e) =>
+                  setForm({ ...form, published: e.target.checked })
+                }
               />
               Published
             </label>
           </div>
           <div className="flex justify-end gap-2 border-t border-border pt-4">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>

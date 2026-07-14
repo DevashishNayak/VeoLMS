@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ListVideo, Plus } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import {
 } from "@/components/admin/table-cells";
 import {
   AdminAlert,
+  AdminClearFilters,
   AdminPageHeader,
   AdminSearch,
   AdminTableShell,
@@ -30,6 +32,11 @@ import {
 } from "@/components/admin/page-kit";
 import { useAdminListQuery } from "@/hooks/use-admin-list-query";
 import type { PageMeta } from "@/lib/admin-query";
+import {
+  adminKeys,
+  fetchAdminJson,
+  useInvalidateAdmin,
+} from "@/lib/admin-cache";
 import { apiJson, formatDuration } from "@/components/admin/types";
 
 type ProgressRow = {
@@ -55,22 +62,29 @@ type LessonOpt = {
   section: { title: string; course: { title: string } };
 };
 
-const defaultMeta: PageMeta = { page: 1, pageSize: 10, total: 0, totalPages: 1 };
+const defaultMeta: PageMeta = {
+  page: 1,
+  pageSize: 10,
+  total: 0,
+  totalPages: 1,
+};
 
 export default function AdminProgressPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+    <Suspense
+      fallback={
+        <div className="p-6 text-sm text-muted-foreground">Loading…</div>
+      }
+    >
       <AdminProgressPageInner />
     </Suspense>
   );
 }
 
 function AdminProgressPageInner() {
-  const [rows, setRows] = useState<ProgressRow[]>([]);
+  const invalidate = useInvalidateAdmin();
   const [users, setUsers] = useState<UserOpt[]>([]);
   const [lessons, setLessons] = useState<LessonOpt[]>([]);
-  const [meta, setMeta] = useState<PageMeta>(defaultMeta);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [modal, setModal] = useState<"create" | "edit" | null>(null);
@@ -92,31 +106,40 @@ function AdminProgressPageInner() {
     setPage,
     setPageSize,
     setFilter,
+    hasActiveFilters,
+    clearFilters,
+    clearSearch,
   } = useAdminListQuery({
     filterKeys: ["completed"],
   });
   const completed = getFilter("completed");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({
-      page: String(page),
-      pageSize: String(pageSize),
-    });
-    if (q) params.set("q", q);
-    if (completed !== "all") params.set("completed", completed);
+  const listParams = { page, pageSize, q, completed };
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error: queryError,
+  } = useQuery({
+    queryKey: adminKeys.progress(listParams),
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize),
+      });
+      if (q) params.set("q", q);
+      if (completed !== "all") params.set("completed", completed);
+      return fetchAdminJson<{ progress: ProgressRow[]; meta: PageMeta }>(
+        `/api/admin/progress?${params}`,
+        { signal },
+      );
+    },
+  });
 
-    const res = await apiJson<{ progress: ProgressRow[]; meta: PageMeta }>(
-      `/api/admin/progress?${params}`
-    );
-    if (res.ok) {
-      setRows(res.data.progress);
-      setMeta(res.data.meta);
-    } else {
-      setError(res.error);
-    }
-    setLoading(false);
-  }, [page, pageSize, q, completed]);
+  const rows = data?.progress ?? [];
+  const meta = data?.meta ?? defaultMeta;
+  const loading = isLoading;
+  const alertError = error || (queryError ? queryError.message : "");
 
   async function loadSelectOptions() {
     const [uRes, lRes] = await Promise.all([
@@ -130,10 +153,6 @@ function AdminProgressPageInner() {
       lessons: lRes.ok ? lRes.data.lessons : lessons,
     };
   }
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   async function openCreate() {
     setEditing(null);
@@ -184,15 +203,18 @@ function AdminProgressPageInner() {
       setMessage("Progress updated");
     }
     setModal(null);
-    await load();
+    invalidate("progress");
   }
 
   async function remove(r: ProgressRow) {
-    if (!confirm(`Delete progress for ${r.user.name} / ${r.lesson.title}?`)) return;
-    const res = await apiJson(`/api/admin/progress?id=${r.id}`, { method: "DELETE" });
+    if (!confirm(`Delete progress for ${r.user.name} / ${r.lesson.title}?`))
+      return;
+    const res = await apiJson(`/api/admin/progress?id=${r.id}`, {
+      method: "DELETE",
+    });
     if (!res.ok) return setError(res.error);
     setMessage("Progress deleted");
-    await load();
+    invalidate("progress");
   }
 
   return (
@@ -206,28 +228,31 @@ function AdminProgressPageInner() {
           </Button>
         }
       />
-      <AdminAlert error={error} message={message} />
+      <AdminAlert error={alertError} message={message} />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="min-w-[200px] flex-1">
-          <AdminSearch
-            value={query}
-            onChange={setQuery}
-            placeholder="Search student, lesson, course…"
-          />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <AdminSearch
+          value={query}
+          onChange={setQuery}
+          onClear={clearSearch}
+          placeholder="Search student, lesson, course…"
+        />
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <AdminClearFilters show={hasActiveFilters} onClear={clearFilters} />
+          <Select
+            className="h-10 w-full sm:w-44"
+            value={completed}
+            onChange={(e) => setFilter("completed", e.target.value)}
+          >
+            <option value="all">All status</option>
+            <option value="true">Completed</option>
+            <option value="false">In progress</option>
+          </Select>
         </div>
-        <Select
-          className="h-10 w-full sm:w-44"
-          value={completed}
-          onChange={(e) => setFilter("completed", e.target.value)}
-        >
-          <option value="all">All status</option>
-          <option value="true">Completed</option>
-          <option value="false">In progress</option>
-        </Select>
       </div>
 
       <AdminTableShell
+        refreshing={isFetching && !isLoading}
         footer={
           <AdminPagination
             meta={meta}
@@ -250,13 +275,19 @@ function AdminProgressPageInner() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={6}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   Loading…
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={6}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   No progress rows match your filters
                 </TableCell>
               </TableRow>
@@ -335,7 +366,9 @@ function AdminProgressPageInner() {
                 <Label>Lesson</Label>
                 <Select
                   value={form.lessonId}
-                  onChange={(e) => setForm({ ...form, lessonId: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, lessonId: e.target.value })
+                  }
                   required
                 >
                   <option value="">Select lesson</option>
@@ -363,12 +396,18 @@ function AdminProgressPageInner() {
             <input
               type="checkbox"
               checked={form.completed}
-              onChange={(e) => setForm({ ...form, completed: e.target.checked })}
+              onChange={(e) =>
+                setForm({ ...form, completed: e.target.checked })
+              }
             />
             Completed
           </label>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setModal(null)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setModal(null)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>

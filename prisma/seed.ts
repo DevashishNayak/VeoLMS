@@ -25,12 +25,48 @@ const COURSES = [
         title: "HTML Fundamentals",
         order: 0,
         lessons: [
-          { title: "Introduction to HTML", youtubeId: "qz0aGYrrlhU", duration: 720, order: 0, isPreview: true },
-          { title: "HTML Document Structure", youtubeId: "PlxWf493en4", duration: 840, order: 1, isPreview: true },
-          { title: "Text Elements & Headings", youtubeId: "1PnVor36_40", duration: 600, order: 2, isPreview: false },
-          { title: "Links and Images", youtubeId: "9OV1eJ2_euI", duration: 900, order: 3, isPreview: false },
-          { title: "Lists and Tables", youtubeId: "wvEYFOn-3kk", duration: 780, order: 4, isPreview: false },
-          { title: "HTML Forms", youtubeId: "fNcJuPIZ2WE", duration: 960, order: 5, isPreview: false },
+          { title: "Introduction to HTML", type: "VIDEO" as const, youtubeId: "qz0aGYrrlhU", duration: 720, order: 0, isPreview: true },
+          { title: "HTML Document Structure", type: "VIDEO" as const, youtubeId: "PlxWf493en4", duration: 840, order: 1, isPreview: true },
+          {
+            title: "HTML Cheat Sheet (Reading)",
+            type: "TEXT" as const,
+            duration: 300,
+            order: 2,
+            isPreview: true,
+            content: `# HTML Cheat Sheet
+
+A quick reference for the tags you'll use most.
+
+## Document skeleton
+
+\`\`\`html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Page title</title>
+  </head>
+  <body>
+    <!-- content goes here -->
+  </body>
+</html>
+\`\`\`
+
+## Common tags
+
+- **Headings:** \`h1\` … \`h6\`
+- **Paragraphs:** \`p\`
+- **Links:** \`a href="..."\`
+- **Images:** \`img src="..." alt="..."\`
+- **Lists:** \`ul\` / \`ol\` + \`li\`
+
+> Tip: always write semantic HTML — it helps accessibility and SEO.
+`,
+          },
+          { title: "Text Elements & Headings", type: "VIDEO" as const, youtubeId: "1PnVor36_40", duration: 600, order: 3, isPreview: false },
+          { title: "Links and Images", type: "VIDEO" as const, youtubeId: "9OV1eJ2_euI", duration: 900, order: 4, isPreview: false },
+          { title: "Lists and Tables", type: "VIDEO" as const, youtubeId: "wvEYFOn-3kk", duration: 780, order: 5, isPreview: false },
+          { title: "HTML Forms", type: "VIDEO" as const, youtubeId: "fNcJuPIZ2WE", duration: 960, order: 6, isPreview: false },
         ],
       },
     ],
@@ -48,12 +84,12 @@ const COURSES = [
         title: "CSS Basics",
         order: 0,
         lessons: [
-          { title: "CSS Introduction", youtubeId: "yfoY53QXEnI", duration: 660, order: 0, isPreview: true },
-          { title: "Selectors & Specificity", youtubeId: "1Rs2ND4ryYc", duration: 720, order: 1, isPreview: false },
-          { title: "Box Model Explained", youtubeId: "rIO-6z_ZiME", duration: 540, order: 2, isPreview: false },
-          { title: "Flexbox Layout", youtubeId: "JJSoEo8JSnc", duration: 1200, order: 3, isPreview: false },
-          { title: "CSS Grid", youtubeId: "EiNiSFIPIQE", duration: 900, order: 4, isPreview: false },
-          { title: "Responsive Design", youtubeId: "sQk6mQZL7Zs", duration: 840, order: 5, isPreview: false },
+          { title: "CSS Introduction", type: "VIDEO" as const, youtubeId: "yfoY53QXEnI", duration: 660, order: 0, isPreview: true },
+          { title: "Selectors & Specificity", type: "VIDEO" as const, youtubeId: "1Rs2ND4ryYc", duration: 720, order: 1, isPreview: false },
+          { title: "Box Model Explained", type: "VIDEO" as const, youtubeId: "rIO-6z_ZiME", duration: 540, order: 2, isPreview: false },
+          { title: "Flexbox Layout", type: "VIDEO" as const, youtubeId: "JJSoEo8JSnc", duration: 1200, order: 3, isPreview: false },
+          { title: "CSS Grid", type: "VIDEO" as const, youtubeId: "EiNiSFIPIQE", duration: 900, order: 4, isPreview: false },
+          { title: "Responsive Design", type: "VIDEO" as const, youtubeId: "sQk6mQZL7Zs", duration: 840, order: 5, isPreview: false },
         ],
       },
     ],
@@ -71,12 +107,12 @@ const COURSES = [
         title: "JavaScript Core",
         order: 0,
         lessons: [
-          { title: "JavaScript Introduction", youtubeId: "PkZNo7MFNFg", duration: 600, order: 0, isPreview: true },
-          { title: "Variables and Data Types", youtubeId: "IsG4Xd6LlsM", duration: 780, order: 1, isPreview: false },
-          { title: "Functions in JavaScript", youtubeId: "N8ap4k_4SqY", duration: 900, order: 2, isPreview: false },
-          { title: "Arrays and Objects", youtubeId: "orIXdOPFWeM", duration: 840, order: 3, isPreview: false },
-          { title: "DOM Manipulation", youtubeId: "5fbzHu5FZTs", duration: 960, order: 4, isPreview: false },
-          { title: "Async JavaScript", youtubeId: "PoRJizFvM7s", duration: 1020, order: 5, isPreview: false },
+          { title: "JavaScript Introduction", type: "VIDEO" as const, youtubeId: "PkZNo7MFNFg", duration: 600, order: 0, isPreview: true },
+          { title: "Variables and Data Types", type: "VIDEO" as const, youtubeId: "IsG4Xd6LlsM", duration: 780, order: 1, isPreview: false },
+          { title: "Functions in JavaScript", type: "VIDEO" as const, youtubeId: "N8ap4k_4SqY", duration: 900, order: 2, isPreview: false },
+          { title: "Arrays and Objects", type: "VIDEO" as const, youtubeId: "orIXdOPFWeM", duration: 840, order: 3, isPreview: false },
+          { title: "DOM Manipulation", type: "VIDEO" as const, youtubeId: "5fbzHu5FZTs", duration: 960, order: 4, isPreview: false },
+          { title: "Async JavaScript", type: "VIDEO" as const, youtubeId: "PoRJizFvM7s", duration: 1020, order: 5, isPreview: false },
         ],
       },
     ],
@@ -112,8 +148,67 @@ async function main() {
   for (const courseData of COURSES) {
     const existing = await prisma.course.findUnique({
       where: { slug: courseData.slug },
+      include: { sections: { include: { lessons: true } } },
     });
-    if (existing) continue;
+    if (existing) {
+      // Ensure demo TEXT lesson exists on already-seeded DBs (schema upgrade path)
+      if (courseData.slug === "html-complete-course") {
+        const section =
+          existing.sections.find((s) => s.title === "HTML Fundamentals") ??
+          existing.sections[0];
+        if (section) {
+          const hasText = section.lessons.some(
+            (l) => l.title === "HTML Cheat Sheet (Reading)"
+          );
+          if (!hasText) {
+            const maxOrder = section.lessons.reduce(
+              (m, l) => Math.max(m, l.order),
+              -1
+            );
+            await prisma.lesson.create({
+              data: {
+                sectionId: section.id,
+                title: "HTML Cheat Sheet (Reading)",
+                type: "TEXT",
+                duration: 300,
+                order: maxOrder + 1,
+                isPreview: true,
+                content: `# HTML Cheat Sheet
+
+A quick reference for the tags you'll use most.
+
+## Document skeleton
+
+\`\`\`html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Page title</title>
+  </head>
+  <body>
+    <!-- content goes here -->
+  </body>
+</html>
+\`\`\`
+
+## Common tags
+
+- \`<h1>\`–\`<h6>\` — headings
+- \`<p>\` — paragraph
+- \`<a href="">\` — links
+- \`<img src="" alt="">\` — images
+- \`<ul>\` / \`<ol>\` + \`<li>\` — lists
+- \`<form>\`, \`<input>\`, \`<button>\` — forms
+`,
+              },
+            });
+            console.log("  Added TEXT demo lesson to html-complete-course");
+          }
+        }
+      }
+      continue;
+    }
 
     const { sections, ...courseFields } = courseData;
     await prisma.course.create({

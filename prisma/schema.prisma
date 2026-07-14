@@ -20,18 +20,25 @@ enum PaymentStatus {
   FAILED
 }
 
+/// Lesson primary content kind (VIDEO can be YouTube and/or self-hosted URL).
+enum LessonType {
+  VIDEO
+  TEXT
+  PDF
+}
+
 model User {
-  id            String           @id @default(cuid())
-  email         String           @unique
-  passwordHash  String
-  name          String
-  role          Role             @default(STUDENT)
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  enrollments   Enrollment[]
-  payments      Payment[]
+  id             String           @id @default(cuid())
+  email          String           @unique
+  passwordHash   String
+  name           String
+  role           Role             @default(STUDENT)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  enrollments    Enrollment[]
+  payments       Payment[]
   lessonProgress LessonProgress[]
-  courses       Course[]         @relation("InstructorCourses")
+  courses        Course[]         @relation("InstructorCourses")
 }
 
 model Course {
@@ -72,17 +79,42 @@ model Lesson {
   id          String           @id @default(cuid())
   title       String
   description String?          @db.Text
-  youtubeId   String
+  /// VIDEO | TEXT | PDF
+  type        LessonType       @default(VIDEO)
+  /// YouTube video id (11 chars) — optional when videoUrl is set
+  youtubeId   String?
+  /// Self-hosted or CDN video URL (mp4 / stream) — optional when youtubeId is set
+  videoUrl    String?          @db.Text
+  /// Markdown / rich text body for TEXT lessons (also used as notes under VIDEO/PDF)
+  content     String?          @db.Text
+  /// PDF file URL for PDF lessons
+  pdfUrl      String?          @db.Text
   duration    Int              @default(0)
   order       Int
   isPreview   Boolean          @default(false)
   sectionId   String
   section     Section          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   progress    LessonProgress[]
+  resources   LessonResource[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
   @@index([sectionId])
+  @@index([type])
+}
+
+/// Extra downloadable / linked materials attached to any lesson.
+model LessonResource {
+  id        String   @id @default(cuid())
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  title     String
+  url       String   @db.Text
+  mimeType  String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([lessonId])
 }
 
 model Enrollment {

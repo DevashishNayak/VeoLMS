@@ -44,18 +44,59 @@ export const sectionSchema = z.object({
   order: z.coerce.number().int().min(0).optional(),
 });
 
-export const lessonSchema = z.object({
-  title: z.string().min(1).max(200),
-  description: z.string().max(5000).optional().nullable(),
-  youtubeId: z
-    .string()
-    .min(6)
-    .max(20)
-    .regex(/^[a-zA-Z0-9_-]+$/, "Invalid YouTube video ID"),
-  duration: z.coerce.number().int().min(0).optional(),
-  order: z.coerce.number().int().min(0).optional(),
-  isPreview: z.boolean().optional(),
-});
+const optionalUrl = z
+  .string()
+  .url()
+  .optional()
+  .nullable()
+  .or(z.literal("").transform(() => null));
+
+export const lessonSchema = z
+  .object({
+    title: z.string().min(1).max(200),
+    description: z.string().max(5000).optional().nullable(),
+    type: z.enum(["VIDEO", "TEXT", "PDF"]).default("VIDEO"),
+    youtubeId: z
+      .string()
+      .max(20)
+      .regex(/^[a-zA-Z0-9_-]*$/, "Invalid YouTube video ID")
+      .optional()
+      .nullable()
+      .or(z.literal("").transform(() => null)),
+    videoUrl: optionalUrl,
+    content: z.string().max(100_000).optional().nullable(),
+    pdfUrl: optionalUrl,
+    duration: z.coerce.number().int().min(0).optional(),
+    order: z.coerce.number().int().min(0).optional(),
+    isPreview: z.boolean().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.type === "VIDEO") {
+      const hasYt = Boolean(data.youtubeId && data.youtubeId.length >= 6);
+      const hasFile = Boolean(data.videoUrl);
+      if (!hasYt && !hasFile) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Add a YouTube ID and/or an uploaded / hosted video URL",
+          path: ["youtubeId"],
+        });
+      }
+    }
+    if (data.type === "TEXT" && !data.content?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Text lessons need lesson content",
+        path: ["content"],
+      });
+    }
+    if (data.type === "PDF" && !data.pdfUrl) {
+      ctx.addIssue({
+        code: "custom",
+        message: "PDF lessons need a PDF URL or upload",
+        path: ["pdfUrl"],
+      });
+    }
+  });
 
 export const progressSchema = z.object({
   lessonId: z.string().cuid(),

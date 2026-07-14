@@ -17,7 +17,11 @@ export async function PUT(
 
   const { id } = await params;
   const body = await request.json();
-  const parsed = updateLessonSchema.safeParse(body);
+  // Prefer full schema when type-bearing payload is sent (admin forms send complete lesson)
+  const full = lessonSchema.safeParse(body);
+  const parsed = full.success
+    ? full
+    : updateLessonSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? "Invalid data" },
@@ -25,9 +29,14 @@ export async function PUT(
     );
   }
 
+  const data = { ...parsed.data } as Record<string, unknown>;
+  for (const key of ["youtubeId", "videoUrl", "content", "pdfUrl", "description"] as const) {
+    if (key in data && data[key] === "") data[key] = null;
+  }
+
   const lesson = await prisma.lesson.update({
     where: { id },
-    data: parsed.data,
+    data,
   });
   return NextResponse.json({ lesson });
 }

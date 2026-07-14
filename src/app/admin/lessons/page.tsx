@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ListVideo, Plus } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ import {
 } from "@/components/admin/table-cells";
 import {
   AdminAlert,
+  AdminClearFilters,
   AdminPageHeader,
   AdminSearch,
   AdminTableShell,
@@ -32,13 +34,25 @@ import {
 } from "@/components/admin/page-kit";
 import { useAdminListQuery } from "@/hooks/use-admin-list-query";
 import type { PageMeta } from "@/lib/admin-query";
+import {
+  adminKeys,
+  fetchAdminJson,
+  useInvalidateAdmin,
+} from "@/lib/admin-cache";
+import { FileUploadField } from "@/components/admin/file-upload-field";
 import { apiJson, formatDuration } from "@/components/admin/types";
+
+type LessonType = "VIDEO" | "TEXT" | "PDF";
 
 type LessonRow = {
   id: string;
   title: string;
   description: string | null;
-  youtubeId: string;
+  type: LessonType;
+  youtubeId: string | null;
+  videoUrl: string | null;
+  content: string | null;
+  pdfUrl: string | null;
   duration: number;
   order: number;
   isPreview: boolean;
@@ -58,36 +72,49 @@ type SectionOpt = {
 
 type CourseOpt = { id: string; title: string; slug: string };
 
-const defaultMeta: PageMeta = { page: 1, pageSize: 10, total: 0, totalPages: 1 };
+const emptyForm = {
+  sectionId: "",
+  title: "",
+  description: "",
+  type: "VIDEO" as LessonType,
+  youtubeId: "",
+  videoUrl: "",
+  content: "",
+  pdfUrl: "",
+  duration: 600,
+  order: 0,
+  isPreview: false,
+};
+
+const defaultMeta: PageMeta = {
+  page: 1,
+  pageSize: 10,
+  total: 0,
+  totalPages: 1,
+};
 
 export default function AdminLessonsPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+    <Suspense
+      fallback={
+        <div className="p-6 text-sm text-muted-foreground">Loading…</div>
+      }
+    >
       <AdminLessonsPageInner />
     </Suspense>
   );
 }
 
 function AdminLessonsPageInner() {
-  const [lessons, setLessons] = useState<LessonRow[]>([]);
+  const invalidate = useInvalidateAdmin();
   const [sections, setSections] = useState<SectionOpt[]>([]);
   const [courses, setCourses] = useState<CourseOpt[]>([]);
-  const [meta, setMeta] = useState<PageMeta>(defaultMeta);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [modal, setModal] = useState<"create" | "edit" | null>(null);
   const [editing, setEditing] = useState<LessonRow | null>(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    sectionId: "",
-    title: "",
-    description: "",
-    youtubeId: "",
-    duration: 600,
-    order: 0,
-    isPreview: false,
-  });
+  const [form, setForm] = useState(emptyForm);
   const {
     page,
     pageSize,
@@ -98,37 +125,46 @@ function AdminLessonsPageInner() {
     setPage,
     setPageSize,
     setFilter,
+    hasActiveFilters,
+    clearFilters,
+    clearSearch,
   } = useAdminListQuery({
     filterKeys: ["courseId", "preview"],
   });
   const preview = getFilter("preview");
   const courseId = getFilter("courseId");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({
-      page: String(page),
-      pageSize: String(pageSize),
-    });
-    if (q) params.set("q", q);
-    if (preview !== "all") params.set("preview", preview);
-    if (courseId !== "all") params.set("courseId", courseId);
+  const listParams = { page, pageSize, q, preview, courseId };
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error: queryError,
+  } = useQuery({
+    queryKey: adminKeys.lessons(listParams),
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize),
+      });
+      if (q) params.set("q", q);
+      if (preview !== "all") params.set("preview", preview);
+      if (courseId !== "all") params.set("courseId", courseId);
+      return fetchAdminJson<{ lessons: LessonRow[]; meta: PageMeta }>(
+        `/api/admin/lessons?${params}`,
+        { signal },
+      );
+    },
+  });
 
-    const res = await apiJson<{ lessons: LessonRow[]; meta: PageMeta }>(
-      `/api/admin/lessons?${params}`
-    );
-    if (res.ok) {
-      setLessons(res.data.lessons);
-      setMeta(res.data.meta);
-    } else {
-      setError(res.error);
-    }
-    setLoading(false);
-  }, [page, pageSize, q, preview, courseId]);
+  const lessons = data?.lessons ?? [];
+  const meta = data?.meta ?? defaultMeta;
+  const loading = isLoading;
+  const alertError = error || (queryError ? queryError.message : "");
 
   async function loadCourses() {
     const res = await apiJson<{ courses: CourseOpt[] }>(
-      "/api/admin/courses?forSelect=1"
+      "/api/admin/courses?forSelect=1",
     );
     if (res.ok) {
       setCourses(res.data.courses);
@@ -139,7 +175,7 @@ function AdminLessonsPageInner() {
 
   async function loadSections() {
     const res = await apiJson<{ sections: SectionOpt[] }>(
-      "/api/admin/sections?forSelect=1"
+      "/api/admin/sections?forSelect=1",
     );
     if (res.ok) {
       setSections(res.data.sections);
@@ -149,10 +185,6 @@ function AdminLessonsPageInner() {
   }
 
   useEffect(() => {
-    load();
-  }, [load]);
-
-  useEffect(() => {
     void loadCourses();
   }, []);
 
@@ -160,13 +192,8 @@ function AdminLessonsPageInner() {
     setEditing(null);
     const list = await loadSections();
     setForm({
+      ...emptyForm,
       sectionId: list[0]?.id ?? "",
-      title: "",
-      description: "",
-      youtubeId: "",
-      duration: 600,
-      order: 0,
-      isPreview: false,
     });
     setModal("create");
   }
@@ -178,7 +205,11 @@ function AdminLessonsPageInner() {
       sectionId: l.sectionId,
       title: l.title,
       description: l.description ?? "",
-      youtubeId: l.youtubeId,
+      type: l.type,
+      youtubeId: l.youtubeId ?? "",
+      videoUrl: l.videoUrl ?? "",
+      content: l.content ?? "",
+      pdfUrl: l.pdfUrl ?? "",
       duration: l.duration,
       order: l.order,
       isPreview: l.isPreview,
@@ -193,7 +224,11 @@ function AdminLessonsPageInner() {
     const payload = {
       title: form.title,
       description: form.description || null,
+      type: form.type,
       youtubeId: form.youtubeId,
+      videoUrl: form.videoUrl,
+      content: form.content,
+      pdfUrl: form.pdfUrl,
       duration: Number(form.duration),
       order: Number(form.order),
       isPreview: form.isPreview,
@@ -217,15 +252,17 @@ function AdminLessonsPageInner() {
       setMessage("Lesson updated");
     }
     setModal(null);
-    await load();
+    invalidate("lessons", "sections", "courses");
   }
 
   async function remove(l: LessonRow) {
     if (!confirm(`Delete lesson “${l.title}”?`)) return;
-    const res = await apiJson(`/api/admin/lessons/${l.id}`, { method: "DELETE" });
+    const res = await apiJson(`/api/admin/lessons/${l.id}`, {
+      method: "DELETE",
+    });
     if (!res.ok) return setError(res.error);
     setMessage("Lesson deleted");
-    await load();
+    invalidate("lessons", "sections", "courses");
   }
 
   return (
@@ -239,40 +276,43 @@ function AdminLessonsPageInner() {
           </Button>
         }
       />
-      <AdminAlert error={error} message={message} />
+      <AdminAlert error={alertError} message={message} />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="min-w-[200px] flex-1">
-          <AdminSearch
-            value={query}
-            onChange={setQuery}
-            placeholder="Search lessons…"
-          />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <AdminSearch
+          value={query}
+          onChange={setQuery}
+          onClear={clearSearch}
+          placeholder="Search lessons…"
+        />
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <AdminClearFilters show={hasActiveFilters} onClear={clearFilters} />
+          <Select
+            className="h-10 w-full sm:w-40"
+            value={preview}
+            onChange={(e) => setFilter("preview", e.target.value)}
+          >
+            <option value="all">All access</option>
+            <option value="true">Preview</option>
+            <option value="false">Enrolled only</option>
+          </Select>
+          <Select
+            className="h-10 w-full sm:w-56"
+            value={courseId}
+            onChange={(e) => setFilter("courseId", e.target.value)}
+          >
+            <option value="all">All courses</option>
+            {courses.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+              </option>
+            ))}
+          </Select>
         </div>
-        <Select
-          className="h-10 w-full sm:w-40"
-          value={preview}
-          onChange={(e) => setFilter("preview", e.target.value)}
-        >
-          <option value="all">All access</option>
-          <option value="true">Preview</option>
-          <option value="false">Enrolled only</option>
-        </Select>
-        <Select
-          className="h-10 w-full sm:w-56"
-          value={courseId}
-          onChange={(e) => setFilter("courseId", e.target.value)}
-        >
-          <option value="all">All courses</option>
-          {courses.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.title}
-            </option>
-          ))}
-        </Select>
       </div>
 
       <AdminTableShell
+        refreshing={isFetching && !isLoading}
         footer={
           <AdminPagination
             meta={meta}
@@ -286,7 +326,7 @@ function AdminLessonsPageInner() {
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead>Lesson</TableHead>
               <TableHead>Course / Section</TableHead>
-              <TableHead>YouTube</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Length</TableHead>
               <TableHead>Access</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -295,13 +335,19 @@ function AdminLessonsPageInner() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={6}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   Loading…
                 </TableCell>
               </TableRow>
             ) : lessons.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={6}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   No lessons match your filters
                 </TableCell>
               </TableRow>
@@ -322,8 +368,8 @@ function AdminLessonsPageInner() {
                       href={`/admin/courses/${l.section.course.id}`}
                     />
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {l.youtubeId || <EmptyValue />}
+                  <TableCell>
+                    <Badge variant="secondary">{l.type}</Badge>
                   </TableCell>
                   <TableCell>
                     {l.duration > 0 ? (
@@ -386,18 +432,92 @@ function AdminLessonsPageInner() {
             <Label>Description</Label>
             <Textarea
               value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, description: e.target.value })
+              }
               rows={3}
             />
           </div>
           <div>
-            <Label>YouTube ID</Label>
-            <Input
-              value={form.youtubeId}
-              onChange={(e) => setForm({ ...form, youtubeId: e.target.value })}
-              required
-            />
+            <Label>Type</Label>
+            <Select
+              value={form.type}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  type: e.target.value as LessonType,
+                })
+              }
+            >
+              <option value="VIDEO">Video</option>
+              <option value="TEXT">Text / Markdown</option>
+              <option value="PDF">PDF</option>
+            </Select>
           </div>
+          {form.type === "VIDEO" && (
+            <>
+              <div>
+                <Label>YouTube ID</Label>
+                <Input
+                  value={form.youtubeId}
+                  onChange={(e) =>
+                    setForm({ ...form, youtubeId: e.target.value })
+                  }
+                  placeholder="e.g. qz0aGYrrlhU"
+                />
+              </div>
+              <FileUploadField
+                label="Video file / URL"
+                kind="video"
+                value={form.videoUrl}
+                onChange={(videoUrl) => setForm({ ...form, videoUrl })}
+                hint="Optional if a YouTube ID is set"
+              />
+              <div>
+                <Label>Notes (optional markdown)</Label>
+                <Textarea
+                  rows={3}
+                  value={form.content}
+                  onChange={(e) =>
+                    setForm({ ...form, content: e.target.value })
+                  }
+                />
+              </div>
+            </>
+          )}
+          {form.type === "TEXT" && (
+            <div>
+              <Label>Content (markdown)</Label>
+              <Textarea
+                rows={8}
+                value={form.content}
+                onChange={(e) =>
+                  setForm({ ...form, content: e.target.value })
+                }
+                required
+              />
+            </div>
+          )}
+          {form.type === "PDF" && (
+            <>
+              <FileUploadField
+                label="PDF file / URL"
+                kind="pdf"
+                value={form.pdfUrl}
+                onChange={(pdfUrl) => setForm({ ...form, pdfUrl })}
+              />
+              <div>
+                <Label>Notes (optional markdown)</Label>
+                <Textarea
+                  rows={3}
+                  value={form.content}
+                  onChange={(e) =>
+                    setForm({ ...form, content: e.target.value })
+                  }
+                />
+              </div>
+            </>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Duration (sec)</Label>
@@ -426,12 +546,18 @@ function AdminLessonsPageInner() {
             <input
               type="checkbox"
               checked={form.isPreview}
-              onChange={(e) => setForm({ ...form, isPreview: e.target.checked })}
+              onChange={(e) =>
+                setForm({ ...form, isPreview: e.target.checked })
+              }
             />
             Free preview
           </label>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setModal(null)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setModal(null)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>

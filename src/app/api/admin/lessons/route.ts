@@ -6,9 +6,9 @@ import { pageMeta, parseListQuery } from "@/lib/admin-query";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 
-const createLessonSchema = lessonSchema.extend({
-  sectionId: z.string().cuid(),
-});
+const createLessonSchema = lessonSchema.and(
+  z.object({ sectionId: z.string().cuid() })
+);
 
 export async function GET(request: Request) {
   const session = await requireAdminSession();
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const { page, pageSize, q, skip } = parseListQuery(url);
   const courseId = url.searchParams.get("courseId") || undefined;
-  const preview = url.searchParams.get("preview"); // all | true | false
+  const preview = url.searchParams.get("preview");
   const forSelect = url.searchParams.get("forSelect") === "1";
 
   if (forSelect) {
@@ -44,6 +44,7 @@ export async function GET(request: Request) {
     where.OR = [
       { title: { contains: q, mode: "insensitive" } },
       { youtubeId: { contains: q, mode: "insensitive" } },
+      { content: { contains: q, mode: "insensitive" } },
       { section: { title: { contains: q, mode: "insensitive" } } },
       { section: { course: { title: { contains: q, mode: "insensitive" } } } },
     ];
@@ -61,6 +62,7 @@ export async function GET(request: Request) {
             course: { select: { id: true, title: true } },
           },
         },
+        resources: { orderBy: { order: "asc" } },
       },
       orderBy: [{ sectionId: "asc" }, { order: "asc" }],
       skip,
@@ -87,8 +89,19 @@ export async function POST(request: Request) {
     );
   }
 
-  const { sectionId, title, youtubeId, description, duration, order, isPreview } =
-    parsed.data;
+  const {
+    sectionId,
+    title,
+    type,
+    youtubeId,
+    videoUrl,
+    content,
+    pdfUrl,
+    description,
+    duration,
+    order,
+    isPreview,
+  } = parsed.data;
 
   const nextOrder =
     order ??
@@ -103,7 +116,11 @@ export async function POST(request: Request) {
     data: {
       sectionId,
       title,
-      youtubeId,
+      type,
+      youtubeId: youtubeId || null,
+      videoUrl: videoUrl || null,
+      content: content || null,
+      pdfUrl: pdfUrl || null,
       description: description ?? null,
       duration: duration ?? 0,
       order: nextOrder,

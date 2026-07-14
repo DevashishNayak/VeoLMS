@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import {
 } from "@/components/admin/table-cells";
 import {
   AdminAlert,
+  AdminClearFilters,
   AdminPageHeader,
   AdminSearch,
   AdminTableShell,
@@ -30,6 +32,11 @@ import {
 } from "@/components/admin/page-kit";
 import { useAdminListQuery } from "@/hooks/use-admin-list-query";
 import type { PageMeta } from "@/lib/admin-query";
+import {
+  adminKeys,
+  fetchAdminJson,
+  useInvalidateAdmin,
+} from "@/lib/admin-cache";
 import { apiJson } from "@/components/admin/types";
 
 type UserRow = {
@@ -46,20 +53,27 @@ type UserRow = {
   };
 };
 
-const defaultMeta: PageMeta = { page: 1, pageSize: 10, total: 0, totalPages: 1 };
+const defaultMeta: PageMeta = {
+  page: 1,
+  pageSize: 10,
+  total: 0,
+  totalPages: 1,
+};
 
 export default function AdminUsersPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+    <Suspense
+      fallback={
+        <div className="p-6 text-sm text-muted-foreground">Loading…</div>
+      }
+    >
       <AdminUsersPageInner />
     </Suspense>
   );
 }
 
 function AdminUsersPageInner() {
-  const [users, setUsers] = useState<UserRow[]>([]);
-  const [meta, setMeta] = useState<PageMeta>(defaultMeta);
-  const [loading, setLoading] = useState(true);
+  const invalidate = useInvalidateAdmin();
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [modal, setModal] = useState<"create" | "edit" | null>(null);
@@ -81,35 +95,40 @@ function AdminUsersPageInner() {
     setPage,
     setPageSize,
     setFilter,
+    hasActiveFilters,
+    clearFilters,
+    clearSearch,
   } = useAdminListQuery({
     filterKeys: ["role"],
   });
   const role = getFilter("role");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({
-      page: String(page),
-      pageSize: String(pageSize),
-    });
-    if (q) params.set("q", q);
-    if (role !== "all") params.set("role", role);
+  const listParams = { page, pageSize, q, role };
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error: queryError,
+  } = useQuery({
+    queryKey: adminKeys.users(listParams),
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize),
+      });
+      if (q) params.set("q", q);
+      if (role !== "all") params.set("role", role);
+      return fetchAdminJson<{ users: UserRow[]; meta: PageMeta }>(
+        `/api/admin/users?${params}`,
+        { signal },
+      );
+    },
+  });
 
-    const res = await apiJson<{ users: UserRow[]; meta: PageMeta }>(
-      `/api/admin/users?${params}`
-    );
-    if (res.ok) {
-      setUsers(res.data.users);
-      setMeta(res.data.meta);
-    } else {
-      setError(res.error);
-    }
-    setLoading(false);
-  }, [page, pageSize, q, role]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const users = data?.users ?? [];
+  const meta = data?.meta ?? defaultMeta;
+  const loading = isLoading;
+  const alertError = error || (queryError ? queryError.message : "");
 
   function openCreate() {
     setEditing(null);
@@ -152,15 +171,17 @@ function AdminUsersPageInner() {
       setMessage("User updated");
     }
     setModal(null);
-    await load();
+    invalidate("users");
   }
 
   async function remove(u: UserRow) {
     if (!confirm(`Delete user “${u.name}” (${u.email})?`)) return;
-    const res = await apiJson(`/api/admin/users?id=${u.id}`, { method: "DELETE" });
+    const res = await apiJson(`/api/admin/users?id=${u.id}`, {
+      method: "DELETE",
+    });
     if (!res.ok) return setError(res.error);
     setMessage("User deleted");
-    await load();
+    invalidate("users");
   }
 
   return (
@@ -174,24 +195,31 @@ function AdminUsersPageInner() {
           </Button>
         }
       />
-      <AdminAlert error={error} message={message} />
+      <AdminAlert error={alertError} message={message} />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="min-w-[200px] flex-1">
-          <AdminSearch value={query} onChange={setQuery} placeholder="Search users…" />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <AdminSearch
+          value={query}
+          onChange={setQuery}
+          onClear={clearSearch}
+          placeholder="Search users…"
+        />
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <AdminClearFilters show={hasActiveFilters} onClear={clearFilters} />
+          <Select
+            className="h-10 w-full sm:w-40"
+            value={role}
+            onChange={(e) => setFilter("role", e.target.value)}
+          >
+            <option value="all">All roles</option>
+            <option value="STUDENT">Student</option>
+            <option value="ADMIN">Admin</option>
+          </Select>
         </div>
-        <Select
-          className="h-10 w-full sm:w-40"
-          value={role}
-          onChange={(e) => setFilter("role", e.target.value)}
-        >
-          <option value="all">All roles</option>
-          <option value="STUDENT">Student</option>
-          <option value="ADMIN">Admin</option>
-        </Select>
       </div>
 
       <AdminTableShell
+        refreshing={isFetching && !isLoading}
         footer={
           <AdminPagination
             meta={meta}
@@ -214,13 +242,19 @@ function AdminUsersPageInner() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={6}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   Loading…
                 </TableCell>
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={6}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   No users match your filters
                 </TableCell>
               </TableRow>
@@ -285,7 +319,9 @@ function AdminUsersPageInner() {
             />
           </div>
           <div>
-            <Label>{modal === "edit" ? "New password (optional)" : "Password"}</Label>
+            <Label>
+              {modal === "edit" ? "New password (optional)" : "Password"}
+            </Label>
             <Input
               type="password"
               value={form.password}
@@ -299,7 +335,10 @@ function AdminUsersPageInner() {
             <Select
               value={form.role}
               onChange={(e) =>
-                setForm({ ...form, role: e.target.value as "STUDENT" | "ADMIN" })
+                setForm({
+                  ...form,
+                  role: e.target.value as "STUDENT" | "ADMIN",
+                })
               }
             >
               <option value="STUDENT">STUDENT</option>
@@ -307,7 +346,11 @@ function AdminUsersPageInner() {
             </Select>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setModal(null)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setModal(null)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>

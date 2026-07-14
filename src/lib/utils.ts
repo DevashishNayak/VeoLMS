@@ -23,7 +23,7 @@ export function formatDuration(seconds: number): string {
 }
 
 export function slugify(text: string): string {
-  return text
+  return (text ?? "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");

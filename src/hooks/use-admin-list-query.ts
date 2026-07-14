@@ -4,6 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
+/** Trim + collapse spaces so similar searches share one cache entry. */
+export function normalizeSearch(q: string) {
+  return q.trim().replace(/\s+/g, " ");
+}
+
 /**
  * Keeps admin list page/pageSize/q/filters in the URL so refresh & share preserve state.
  */
@@ -24,7 +29,7 @@ export function useAdminListQuery(options?: {
   const qParam = searchParams.get("q") ?? "";
 
   const [query, setQuery] = useState(qParam);
-  const debouncedQ = useDebouncedValue(query, 300);
+  const debouncedQ = useDebouncedValue(query, 400);
 
   useEffect(() => {
     setQuery(qParam);
@@ -49,9 +54,14 @@ export function useAdminListQuery(options?: {
   );
 
   useEffect(() => {
-    if (debouncedQ === qParam) return;
-    replaceParams({ q: debouncedQ || null, page: "1" });
-  }, [debouncedQ, qParam, replaceParams]);
+    const nextQ = normalizeSearch(debouncedQ);
+    const liveQ = normalizeSearch(query);
+    const currentQ = normalizeSearch(qParam);
+    // Wait until input has settled — prevents clear/type races putting old `q` back in the URL
+    if (liveQ !== nextQ) return;
+    if (nextQ === currentQ) return;
+    replaceParams({ q: nextQ || null, page: "1" });
+  }, [debouncedQ, query, qParam, replaceParams]);
 
   function getFilter(key: string, fallback = "all") {
     return searchParams.get(key) || fallback;
@@ -61,13 +71,30 @@ export function useAdminListQuery(options?: {
     filterKeys.map((key) => [key, getFilter(key)])
   ) as Record<string, string>;
 
+  const hasSearch = normalizeSearch(query) !== "" || normalizeSearch(qParam) !== "";
+  const hasFilterValues = filterKeys.some((key) => {
+    const v = searchParams.get(key);
+    return Boolean(v && v !== "all");
+  });
+  const hasActiveFilters = hasSearch || hasFilterValues;
+
+  const clearFilters = useCallback(() => {
+    setQuery("");
+    router.replace(pathname, { scroll: false });
+  }, [router, pathname]);
+
+  const clearSearch = useCallback(() => {
+    setQuery("");
+    replaceParams({ q: null, page: "1" });
+  }, [replaceParams]);
+
   return {
     page,
     pageSize,
     query,
     setQuery,
-    /** Use this for API fetches (URL is source of truth). */
-    q: qParam,
+    /** Normalized search string for API + cache keys. */
+    q: normalizeSearch(qParam).toLowerCase(),
     filters,
     getFilter,
     setPage: (p: number) => replaceParams({ page: String(Math.max(1, p)) }),
@@ -75,5 +102,9 @@ export function useAdminListQuery(options?: {
       replaceParams({ pageSize: String(size), page: "1" }),
     setFilter: (key: string, value: string) =>
       replaceParams({ [key]: value, page: "1" }),
+    hasActiveFilters,
+    hasFilterValues,
+    clearFilters,
+    clearSearch,
   };
 }

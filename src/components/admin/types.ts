@@ -2,7 +2,11 @@ export type AdminLesson = {
   id: string;
   title: string;
   description: string | null;
-  youtubeId: string;
+  type: "VIDEO" | "TEXT" | "PDF";
+  youtubeId: string | null;
+  videoUrl: string | null;
+  content: string | null;
+  pdfUrl: string | null;
   duration: number;
   order: number;
   isPreview: boolean;
@@ -80,7 +84,13 @@ export async function apiJson<T>(
       return { ok: false, error: data.error ?? `Request failed (${res.status})` };
     }
     return { ok: true, data: data as T };
-  } catch {
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw err;
+    }
+    if (err instanceof Error && err.name === "AbortError") {
+      throw err;
+    }
     return { ok: false, error: "Network error" };
   }
 }
