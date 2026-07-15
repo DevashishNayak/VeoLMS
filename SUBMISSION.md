@@ -97,10 +97,46 @@ We deliberately avoided: dedicated video servers, always-on encoding, multi-regi
 
 ## 7. Why I Want To Join VeoLMS
 
-[Write your personal motivation here — why open-source LMS interests you, what you bring to the team]
+I enjoy building products that solve real-world, everyday problems. Over the years, I've developed practical tools such as a Cookie Manager browser extension for managing authentication tokens during testing and a suite of PDF utilities for merging, editing, and unlocking PDFs.
+
+During my final year, I built DCodeN, an application for encrypting and decrypting data, and I was part of the winning team at Smart India Hackathon 2020, where we developed Swachhta Prabandh, a platform connecting industrial waste producers, waste collectors, and transporters to streamline waste management.
+
+Most of my professional experience has been in the EdTech domain, where I've designed and developed Learning Management Systems. This has also inspired me to build my own LMS focused on creating a better learning experience.
+
+I recently came across your Node.js course and really enjoyed your teaching style. I would love the opportunity to join you and your team, contribute my skills, and continue learning while building impactful products together.
 
 ## 8. Challenges Faced
 
-[Write about technical challenges, trade-offs, lessons learned — e.g. payment verification flow, video progress with YouTube API, balancing cost vs features]
+### Technical challenges
+
+1. **Payments (Razorpay test mode)** — Early `create-order` failures forced careful credential and receipt handling. Checkout success alone wasn’t enough: enrollment had to be tied to **HMAC-verified** payment signatures, with a **webhook** path as a failsafe when the browser callback is missed. UPI options in test mode are dashboard/config dependent, so we documented the reliable test-card path.
+
+2. **Signup without buying SMS or a custom email domain** — Phone OTP isn’t free at scale. Resend’s free sandbox only delivers to the account owner unless a domain is verified; DuckDNS-style hostnames don’t satisfy that. We chose **Gmail App Password SMTP** (any recipient) with Resend as fallback, plus email OTP hashing and rate limits.
+
+3. **Video player consistency** — Mixing YouTube’s native chrome with a custom player caused resume bugs, auto-advance glitches, and Vidstack **“provider destroyed”** races when swapping lessons. We unified on Vidstack, hardened teardown, and kept autoplay / next-lesson behavior stable across VIDEO / TEXT / PDF.
+
+4. **HLS vs cost** — HLS quality switching is valuable, but running FFmpeg / a permanent transcoder breaks the cost goal. Trade-off: **play** multi-bitrate `.m3u8` (demo + FILE support) without self-hosting an encode farm; lesson video defaults to YouTube/Vimeo egress.
+
+5. **Content protection vs usability** — Locked lessons never leak media. For FILE/PDF/resources we issue **short-lived HMAC URLs** (`/api/media`) that re-check enrollment—stronger than putting permanent CDN URLs in the page, without private-object infra on day one.
+
+6. **UX polish under real use** — Course card height shift, learn sidebar sticky vs footer overlap, remember collapse prefs, mobile admin drawer / header overflow, and search that must show skeletons (not “no results”) while fetching. Fixed with layout constraints, pinned course list logic, and header typeahead + Playwright overflow checks.
+
+### Product / architecture trade-offs
+
+| Decision | Trade-off |
+|----------|-----------|
+| YouTube/Vimeo first, Blob optional | Near-zero video bill; less control than fully self-hosted DRM |
+| Vercel + Neon serverless | Cheap ops; possible cold starts / idle pooler disconnect noise |
+| No always-on FFmpeg | HLS *playback* yes; generating ABR ladders deferred |
+| Email OTP (not SMS) | Free; email delivery UX depends on SMTP/provider limits |
+| Vitest + Playwright smoke | Meaningful auth/API/UI coverage without a heavy QA suite |
+
+### Lessons learned
+
+- Security is a loop: validate inputs, verify payments server-side, gate content, then harden OTP/signatures and soft-fail signup responses.
+- “Works once” player UX isn’t enough—lesson switching and YouTube resume needed explicit destroy/resume handling.
+- Cost goals force clear feature cuts (no encoder farm, no SMS); document those cuts honestly in the submission.
+- Automating desktop + mobile smoke tests caught regressions that manual checks missed under deadline pressure.
 
 ---
+
