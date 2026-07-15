@@ -45,6 +45,9 @@ export async function Header() {
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/dashboard">Dashboard</Link>
               </Button>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/profile">Profile</Link>
+              </Button>
               <form
                 action={async () => {
                   "use server";

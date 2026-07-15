@@ -16,6 +16,41 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+export const profileUpdateSchema = z
+  .object({
+    name: z.string().min(2, "Name must be at least 2 characters").max(100),
+    bio: z
+      .string()
+      .max(2000, "Bio must be at most 2000 characters")
+      .optional()
+      .nullable(),
+    imageUrl: z
+      .string()
+      .url("Invalid image URL")
+      .max(2000)
+      .optional()
+      .nullable()
+      .or(z.literal("").transform(() => null)),
+    currentPassword: z.string().optional(),
+    newPassword: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .max(128)
+      .optional()
+      .or(z.literal("")),
+  })
+  .superRefine((data, ctx) => {
+    if (data.newPassword && data.newPassword.length > 0) {
+      if (!data.currentPassword) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Current password is required to set a new password",
+          path: ["currentPassword"],
+        });
+      }
+    }
+  });
+
 const optionalUrl = z
   .string()
   .url()

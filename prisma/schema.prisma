@@ -51,8 +51,12 @@ model User {
   email          String           @unique
   passwordHash   String
   name           String
+  /// Public avatar / profile photo URL (Vercel Blob or HTTPS)
+  imageUrl       String?          @db.Text
   /// Public instructor bio (shown on instructor + course pages)
   bio            String?          @db.Text
+  /// Set when email OTP verification completed at signup
+  emailVerifiedAt DateTime?
   role           Role             @default(STUDENT)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
@@ -61,6 +65,21 @@ model User {
   lessonProgress LessonProgress[]
   courses        Course[]         @relation("InstructorCourses")
   reviews        CourseReview[]
+}
+
+/// Pending signup challenges — account is created only after OTP verify.
+model EmailOtpChallenge {
+  id           String   @id @default(cuid())
+  email        String
+  name         String
+  passwordHash String
+  codeHash     String
+  expiresAt    DateTime
+  attempts     Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
 }
 
 /// Nested categories for catalog + breadcrumbs (e.g. Development → Web Development).

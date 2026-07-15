@@ -2,9 +2,30 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validations";
+import {
+  generateOtpCode,
+  hashOtp,
+  otpConfigured,
+  otpExpiryDate,
+  sendSignupOtpEmail,
+} from "@/lib/email-otp";
 
+/**
+ * Start signup: validate inputs, email OTP, store pending challenge.
+ * Account is created only after /api/auth/register/verify.
+ */
 export async function POST(request: Request) {
   try {
+    if (!otpConfigured()) {
+      return NextResponse.json(
+        {
+          error:
+            "Email verification is not configured. Set GMAIL_USER + GMAIL_APP_PASSWORD (recommended without a domain), or RESEND_API_KEY.",
+        },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const parsed = registerSchema.safeParse(body);
     if (!parsed.success) {
@@ -23,22 +44,50 @@ export async function POST(request: Request) {
       );
     }
 
+    // Basic resend throttle: one active challenge per email every 60s
+    const recent = await prisma.emailOtpChallenge.findFirst({
+      where: {
+        email,
+        createdAt: { gt: new Date(Date.now() - 60_000) },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (recent) {
+      return NextResponse.json(
+        { error: "Please wait a minute before requesting another code" },
+        { status: 429 }
+      );
+    }
+
+    const code = generateOtpCode();
     const passwordHash = await bcrypt.hash(parsed.data.password, 12);
-    const user = await prisma.user.create({
+
+    await prisma.emailOtpChallenge.deleteMany({ where: { email } });
+    await prisma.emailOtpChallenge.create({
       data: {
         email,
-        name: parsed.data.name,
+        name: parsed.data.name.trim(),
         passwordHash,
-        role: "STUDENT",
+        codeHash: hashOtp(code, email),
+        expiresAt: otpExpiryDate(),
       },
-      select: { id: true, email: true, name: true },
     });
 
-    return NextResponse.json({ user }, { status: 201 });
-  } catch {
-    return NextResponse.json(
-      { error: "Registration failed" },
-      { status: 500 }
-    );
+    await sendSignupOtpEmail({
+      email,
+      name: parsed.data.name.trim(),
+      code,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      requiresVerification: true,
+      email,
+      message: "Verification code sent. Check your inbox.",
+    });
+  } catch (e) {
+    const message =
+      e instanceof Error ? e.message : "Failed to start registration";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -7,9 +7,12 @@ export default NextAuth(authConfig).auth((req) => {
   const isLoggedIn = !!req.auth;
   const role = req.auth?.user?.role;
 
-  // Dashboard always requires login. /learn is gated in the page/API
+  // Dashboard + profile require login. /learn is gated in the page/API
   // so Preview lectures can work without an account.
-  if (pathname.startsWith("/dashboard") && !isLoggedIn) {
+  if (
+    (pathname.startsWith("/dashboard") || pathname.startsWith("/profile")) &&
+    !isLoggedIn
+  ) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
@@ -37,5 +40,12 @@ export default NextAuth(authConfig).auth((req) => {
 });
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/learn/:path*", "/admin/:path*"],
+  matcher: [
+    "/dashboard",
+    "/dashboard/:path*",
+    "/profile",
+    "/profile/:path*",
+    "/learn/:path*",
+    "/admin/:path*",
+  ],
 };
