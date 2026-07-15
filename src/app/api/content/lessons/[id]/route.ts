@@ -6,7 +6,7 @@ import { lessonContentSelect } from "@/lib/lesson-payload";
 
 /**
  * Authorized lesson media. Preview → anyone; paid → enrolled (or staff).
- * Never returns youtubeId / videoUrl / content / pdfUrl / resources when locked.
+ * Never returns videoSrc / content / pdfUrl / resources when locked.
  */
 export async function GET(
   _request: Request,
@@ -67,8 +67,8 @@ export async function GET(
       title: lesson.title,
       description: lesson.description,
       type: lesson.type,
-      youtubeId: lesson.youtubeId,
-      videoUrl: lesson.videoUrl,
+      videoProvider: lesson.videoProvider,
+      videoSrc: lesson.videoSrc,
       content: lesson.content,
       pdfUrl: lesson.pdfUrl,
       duration: lesson.duration,

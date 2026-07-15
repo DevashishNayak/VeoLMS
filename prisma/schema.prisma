@@ -38,11 +38,21 @@ enum LessonType {
   PDF
 }
 
+/// Where lesson / trailer video bytes (or embeds) come from.
+enum VideoProvider {
+  YOUTUBE
+  VIMEO
+  /// Direct file URL (Vercel Blob, CDN, mp4/webm/HLS).
+  FILE
+}
+
 model User {
   id             String           @id @default(cuid())
   email          String           @unique
   passwordHash   String
   name           String
+  /// Public instructor bio (shown on instructor + course pages)
+  bio            String?          @db.Text
   role           Role             @default(STUDENT)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
@@ -50,34 +60,78 @@ model User {
   payments       Payment[]
   lessonProgress LessonProgress[]
   courses        Course[]         @relation("InstructorCourses")
+  reviews        CourseReview[]
+}
+
+/// Nested categories for catalog + breadcrumbs (e.g. Development → Web Development).
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  slug      String     @unique
+  parentId  String?
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Category[] @relation("CategoryTree")
+  courses   Course[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([parentId])
+  @@index([slug])
 }
 
 model Course {
-  id               String       @id @default(cuid())
+  id               String              @id @default(cuid())
   title            String
-  slug             String       @unique
-  description      String       @db.Text
-  thumbnail        String       @db.Text
+  slug             String              @unique
+  /// Short pitch for cards / hero (Udemy-style subtitle)
+  subtitle         String              @default("") @db.VarChar(200)
+  /// Full course description (Description section)
+  description      String              @db.Text
+  thumbnail        String              @db.Text
   /// Bullet list shown as “What you’ll learn”
-  learningOutcomes String[]     @default([])
+  learningOutcomes String[]            @default([])
   /// Bullet list shown as “Requirements”
-  requirements     String[]     @default([])
+  requirements     String[]            @default([])
   priceInPaise     Int
-  featured         Boolean            @default(false)
-  published        Boolean            @default(true)
-  deliveryType     CourseDeliveryType @default(SELF_PACED)
+  featured         Boolean             @default(false)
+  published        Boolean             @default(true)
+  deliveryType     CourseDeliveryType  @default(SELF_PACED)
+  trailerProvider  VideoProvider?
+  trailerSrc       String?             @db.Text
+  categoryId       String?
+  category         Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   instructorId     String
-  instructor       User               @relation("InstructorCourses", fields: [instructorId], references: [id])
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  instructor       User                @relation("InstructorCourses", fields: [instructorId], references: [id])
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
   sections         Section[]
   enrollments      Enrollment[]
   payments         Payment[]
+  reviews          CourseReview[]
 
   @@index([slug])
   @@index([featured])
   @@index([instructorId])
   @@index([deliveryType])
+  @@index([categoryId])
+}
+
+model CourseReview {
+  id        String   @id @default(cuid())
+  courseId  String
+  userId    String
+  /// 1–5 stars
+  rating    Int
+  comment   String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, userId])
+  @@index([courseId])
+  @@index([userId])
+  @@index([rating])
 }
 
 model Section {
@@ -94,34 +148,29 @@ model Section {
 }
 
 model Lesson {
-  id          String           @id @default(cuid())
-  title       String
-  description String?          @db.Text
-  /// VIDEO | TEXT | PDF
-  type        LessonType       @default(VIDEO)
-  /// YouTube video id (11 chars) — optional when videoUrl is set
-  youtubeId   String?
-  /// Self-hosted or CDN video URL (mp4 / stream) — optional when youtubeId is set
-  videoUrl    String?          @db.Text
-  /// Markdown / rich text body for TEXT lessons (also used as notes under VIDEO/PDF)
-  content     String?          @db.Text
-  /// PDF file URL for PDF lessons
-  pdfUrl      String?          @db.Text
-  duration    Int              @default(0)
-  order       Int
-  isPreview   Boolean          @default(false)
-  sectionId   String
-  section     Section          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  progress    LessonProgress[]
-  resources   LessonResource[]
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id            String         @id @default(cuid())
+  title         String
+  description   String?        @db.Text
+  type          LessonType     @default(VIDEO)
+  videoProvider VideoProvider?
+  videoSrc      String?        @db.Text
+  content       String?        @db.Text
+  pdfUrl        String?        @db.Text
+  duration      Int            @default(0)
+  order         Int
+  isPreview     Boolean        @default(false)
+  sectionId     String
+  section       Section        @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  progress      LessonProgress[]
+  resources     LessonResource[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   @@index([sectionId])
   @@index([type])
+  @@index([videoProvider])
 }
 
-/// Extra downloadable / linked materials attached to any lesson.
 model LessonResource {
   id        String   @id @default(cuid())
   lessonId  String

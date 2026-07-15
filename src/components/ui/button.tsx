@@ -41,12 +41,30 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
+  (
+    { className, variant, size, asChild = false, disabled, ...props },
+    ref
+  ) => {
+    // Never forward `disabled` through Slot — Next.js Link / non-buttons throw
+    // ("disabled is not a function") when Slot merges boolean props incorrectly.
+    if (asChild) {
+      return (
+        <Slot
+          className={cn(
+            buttonVariants({ variant, size, className }),
+            disabled && "pointer-events-none opacity-50"
+          )}
+          ref={ref}
+          aria-disabled={disabled || undefined}
+          {...props}
+        />
+      );
+    }
     return (
-      <Comp
+      <button
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
+        disabled={disabled}
         {...props}
       />
     );

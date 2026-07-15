@@ -2,19 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import type { VideoProvider } from "@prisma/client";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CheckCircle2, Download, FileText } from "lucide-react";
-import { VideoPlayer } from "@/components/video/video-player";
-import { Html5VideoPlayer } from "@/components/video/html5-video-player";
+import { LmsMediaPlayer } from "@/components/video/lms-media-player";
 import { Button } from "@/components/ui/button";
 
 export type LessonContentProps = {
   lessonId: string;
   type: "VIDEO" | "TEXT" | "PDF";
   title: string;
-  youtubeId?: string | null;
-  videoUrl?: string | null;
+  videoProvider?: VideoProvider | null;
+  videoSrc?: string | null;
   content?: string | null;
   pdfUrl?: string | null;
   initialProgress?: number;
@@ -29,8 +29,8 @@ export function LessonContentView({
   lessonId,
   type,
   title,
-  youtubeId,
-  videoUrl,
+  videoProvider,
+  videoSrc,
   content,
   pdfUrl,
   initialProgress = 0,
@@ -73,42 +73,35 @@ export function LessonContentView({
     router.refresh();
   }
 
+  const hasVideo = Boolean(videoProvider && videoSrc);
+
   return (
     <div className="space-y-6">
-      {type === "VIDEO" && (
-        <>
-          {youtubeId ? (
-            <VideoPlayer
-              youtubeId={youtubeId}
-              lessonId={lessonId}
-              initialProgress={initialProgress}
-              onProgress={handleProgress}
-            />
-          ) : null}
-          {!youtubeId && videoUrl ? (
-            <Html5VideoPlayer
-              src={videoUrl}
-              lessonId={lessonId}
-              initialProgress={initialProgress}
-              onProgress={handleProgress}
-            />
-          ) : null}
-          {youtubeId && videoUrl ? (
-            <details className="rounded-lg border border-border bg-card p-3 text-sm">
-              <summary className="cursor-pointer font-medium">
-                Alternate video file
-              </summary>
-              <div className="mt-3">
-                <Html5VideoPlayer
-                  src={videoUrl}
-                  lessonId={`${lessonId}-file`}
-                  initialProgress={0}
-                  onProgress={handleProgress}
-                />
-              </div>
-            </details>
-          ) : null}
-        </>
+      {type === "VIDEO" && hasVideo && (
+        <div className="space-y-2">
+          <LmsMediaPlayer
+            videoProvider={videoProvider}
+            videoSrc={videoSrc}
+            title={title}
+            lessonId={lessonId}
+            initialProgress={initialProgress}
+            onProgress={handleProgress}
+          />
+          <p className="text-xs text-muted-foreground">
+            Click the player, then:{" "}
+            <kbd className="rounded border border-border px-1">Space</kbd>/
+            <kbd className="rounded border border-border px-1">K</kbd> play ·{" "}
+            <kbd className="rounded border border-border px-1">J</kbd>/
+            <kbd className="rounded border border-border px-1">←</kbd> back ·{" "}
+            <kbd className="rounded border border-border px-1">L</kbd>/
+            <kbd className="rounded border border-border px-1">→</kbd> forward ·{" "}
+            <kbd className="rounded border border-border px-1">M</kbd> mute ·{" "}
+            <kbd className="rounded border border-border px-1">F</kbd> fullscreen ·{" "}
+            <kbd className="rounded border border-border px-1">C</kbd> captions ·{" "}
+            <kbd className="rounded border border-border px-1">&lt;</kbd>/
+            <kbd className="rounded border border-border px-1">&gt;</kbd> speed
+          </p>
+        </div>
       )}
 
       {type === "PDF" && pdfUrl && (
@@ -161,7 +154,7 @@ export function LessonContentView({
                 <a
                   href={r.url}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
                 >
                   <Download className="h-3.5 w-3.5" />

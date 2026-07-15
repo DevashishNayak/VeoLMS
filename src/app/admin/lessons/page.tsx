@@ -40,6 +40,10 @@ import {
   useInvalidateAdmin,
 } from "@/lib/admin-cache";
 import { FileUploadField } from "@/components/admin/file-upload-field";
+import {
+  VideoSourceFields,
+  type VideoProviderValue,
+} from "@/components/admin/video-source-fields";
 import { apiJson, formatDuration } from "@/components/admin/types";
 
 type LessonType = "VIDEO" | "TEXT" | "PDF";
@@ -49,8 +53,8 @@ type LessonRow = {
   title: string;
   description: string | null;
   type: LessonType;
-  youtubeId: string | null;
-  videoUrl: string | null;
+  videoProvider: "YOUTUBE" | "VIMEO" | "FILE" | null;
+  videoSrc: string | null;
   content: string | null;
   pdfUrl: string | null;
   duration: number;
@@ -77,8 +81,8 @@ const emptyForm = {
   title: "",
   description: "",
   type: "VIDEO" as LessonType,
-  youtubeId: "",
-  videoUrl: "",
+  videoProvider: "YOUTUBE" as VideoProviderValue,
+  videoSrc: "",
   content: "",
   pdfUrl: "",
   duration: 600,
@@ -206,8 +210,8 @@ function AdminLessonsPageInner() {
       title: l.title,
       description: l.description ?? "",
       type: l.type,
-      youtubeId: l.youtubeId ?? "",
-      videoUrl: l.videoUrl ?? "",
+      videoProvider: (l.videoProvider ?? "YOUTUBE") as VideoProviderValue,
+      videoSrc: l.videoSrc ?? "",
       content: l.content ?? "",
       pdfUrl: l.pdfUrl ?? "",
       duration: l.duration,
@@ -225,8 +229,8 @@ function AdminLessonsPageInner() {
       title: form.title,
       description: form.description || null,
       type: form.type,
-      youtubeId: form.youtubeId,
-      videoUrl: form.videoUrl,
+      videoProvider: form.videoProvider || null,
+      videoSrc: form.videoSrc,
       content: form.content,
       pdfUrl: form.pdfUrl,
       duration: Number(form.duration),
@@ -456,22 +460,13 @@ function AdminLessonsPageInner() {
           </div>
           {form.type === "VIDEO" && (
             <>
-              <div>
-                <Label>YouTube ID</Label>
-                <Input
-                  value={form.youtubeId}
-                  onChange={(e) =>
-                    setForm({ ...form, youtubeId: e.target.value })
-                  }
-                  placeholder="e.g. qz0aGYrrlhU"
-                />
-              </div>
-              <FileUploadField
-                label="Video file / URL"
-                kind="video"
-                value={form.videoUrl}
-                onChange={(videoUrl) => setForm({ ...form, videoUrl })}
-                hint="Optional if a YouTube ID is set"
+              <VideoSourceFields
+                provider={form.videoProvider}
+                src={form.videoSrc}
+                onProviderChange={(videoProvider) =>
+                  setForm({ ...form, videoProvider })
+                }
+                onSrcChange={(videoSrc) => setForm({ ...form, videoSrc })}
               />
               <div>
                 <Label>Notes (optional markdown)</Label>

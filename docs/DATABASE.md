@@ -19,7 +19,7 @@ Escape hatch (no auto-restart): `npm run dev:next`.
 
 Lessons use `LessonType`: `VIDEO` | `TEXT` | `PDF`.
 
-- **VIDEO** — `youtubeId` and/or `videoUrl` (self-hosted / CDN)
+- **VIDEO** — `videoProvider` (`YOUTUBE` | `VIMEO` | `FILE`) + `videoSrc` (platform id or https URL)
 - **TEXT** — markdown in `content`
 - **PDF** — `pdfUrl`
 - Optional **LessonResource** rows for extra downloads

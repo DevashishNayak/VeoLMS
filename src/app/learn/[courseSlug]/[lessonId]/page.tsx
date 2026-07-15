@@ -134,8 +134,8 @@ export default async function LearnPage({ params }: PageProps) {
             lessonId={lesson.id}
             type={lesson.type ?? "VIDEO"}
             title={lesson.title}
-            youtubeId={lesson.youtubeId}
-            videoUrl={lesson.videoUrl}
+            videoProvider={lesson.videoProvider}
+            videoSrc={lesson.videoSrc}
             content={lesson.content}
             pdfUrl={lesson.pdfUrl}
             initialProgress={progress?.watchedSeconds ?? 0}
@@ -152,45 +152,32 @@ export default async function LearnPage({ params }: PageProps) {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!prevLesson || !accessibleIds.includes(prevLesson.id)}
-                asChild={Boolean(
-                  prevLesson && accessibleIds.includes(prevLesson.id)
-                )}
-              >
-                {prevLesson && accessibleIds.includes(prevLesson.id) ? (
+              {prevLesson && accessibleIds.includes(prevLesson.id) ? (
+                <Button variant="outline" size="sm" asChild>
                   <Link href={`/learn/${courseSlug}/${prevLesson.id}`}>
                     <ChevronLeft className="h-4 w-4" />
                     Previous
                   </Link>
-                ) : (
-                  <span>
-                    <ChevronLeft className="h-4 w-4" />
-                    Previous
-                  </span>
-                )}
-              </Button>
-              <Button
-                size="sm"
-                disabled={!nextLesson || !accessibleIds.includes(nextLesson.id)}
-                asChild={Boolean(
-                  nextLesson && accessibleIds.includes(nextLesson.id)
-                )}
-              >
-                {nextLesson && accessibleIds.includes(nextLesson.id) ? (
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" disabled>
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+              )}
+              {nextLesson && accessibleIds.includes(nextLesson.id) ? (
+                <Button size="sm" asChild>
                   <Link href={`/learn/${courseSlug}/${nextLesson.id}`}>
                     Next
                     <ChevronRight className="h-4 w-4" />
                   </Link>
-                ) : (
-                  <span>
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                  </span>
-                )}
-              </Button>
+                </Button>
+              ) : (
+                <Button size="sm" disabled>
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
         </div>

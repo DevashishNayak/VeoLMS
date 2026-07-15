@@ -25,8 +25,8 @@ const COURSES = [
         title: "HTML Fundamentals",
         order: 0,
         lessons: [
-          { title: "Introduction to HTML", type: "VIDEO" as const, youtubeId: "qz0aGYrrlhU", duration: 720, order: 0, isPreview: true },
-          { title: "HTML Document Structure", type: "VIDEO" as const, youtubeId: "PlxWf493en4", duration: 840, order: 1, isPreview: true },
+          { title: "Introduction to HTML", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "qz0aGYrrlhU", duration: 720, order: 0, isPreview: true },
+          { title: "HTML Document Structure", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "PlxWf493en4", duration: 840, order: 1, isPreview: true },
           {
             title: "HTML Cheat Sheet (Reading)",
             type: "TEXT" as const,
@@ -63,10 +63,10 @@ A quick reference for the tags you'll use most.
 > Tip: always write semantic HTML — it helps accessibility and SEO.
 `,
           },
-          { title: "Text Elements & Headings", type: "VIDEO" as const, youtubeId: "1PnVor36_40", duration: 600, order: 3, isPreview: false },
-          { title: "Links and Images", type: "VIDEO" as const, youtubeId: "9OV1eJ2_euI", duration: 900, order: 4, isPreview: false },
-          { title: "Lists and Tables", type: "VIDEO" as const, youtubeId: "wvEYFOn-3kk", duration: 780, order: 5, isPreview: false },
-          { title: "HTML Forms", type: "VIDEO" as const, youtubeId: "fNcJuPIZ2WE", duration: 960, order: 6, isPreview: false },
+          { title: "Text Elements & Headings", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "1PnVor36_40", duration: 600, order: 3, isPreview: false },
+          { title: "Links and Images", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "9OV1eJ2_euI", duration: 900, order: 4, isPreview: false },
+          { title: "Lists and Tables", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "wvEYFOn-3kk", duration: 780, order: 5, isPreview: false },
+          { title: "HTML Forms", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "fNcJuPIZ2WE", duration: 960, order: 6, isPreview: false },
         ],
       },
     ],
@@ -84,12 +84,12 @@ A quick reference for the tags you'll use most.
         title: "CSS Basics",
         order: 0,
         lessons: [
-          { title: "CSS Introduction", type: "VIDEO" as const, youtubeId: "yfoY53QXEnI", duration: 660, order: 0, isPreview: true },
-          { title: "Selectors & Specificity", type: "VIDEO" as const, youtubeId: "1Rs2ND4ryYc", duration: 720, order: 1, isPreview: false },
-          { title: "Box Model Explained", type: "VIDEO" as const, youtubeId: "rIO-6z_ZiME", duration: 540, order: 2, isPreview: false },
-          { title: "Flexbox Layout", type: "VIDEO" as const, youtubeId: "JJSoEo8JSnc", duration: 1200, order: 3, isPreview: false },
-          { title: "CSS Grid", type: "VIDEO" as const, youtubeId: "EiNiSFIPIQE", duration: 900, order: 4, isPreview: false },
-          { title: "Responsive Design", type: "VIDEO" as const, youtubeId: "sQk6mQZL7Zs", duration: 840, order: 5, isPreview: false },
+          { title: "CSS Introduction", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "yfoY53QXEnI", duration: 660, order: 0, isPreview: true },
+          { title: "Selectors & Specificity", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "1Rs2ND4ryYc", duration: 720, order: 1, isPreview: false },
+          { title: "Box Model Explained", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "rIO-6z_ZiME", duration: 540, order: 2, isPreview: false },
+          { title: "Flexbox Layout", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "JJSoEo8JSnc", duration: 1200, order: 3, isPreview: false },
+          { title: "CSS Grid", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "EiNiSFIPIQE", duration: 900, order: 4, isPreview: false },
+          { title: "Responsive Design", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "sQk6mQZL7Zs", duration: 840, order: 5, isPreview: false },
         ],
       },
     ],
@@ -107,12 +107,12 @@ A quick reference for the tags you'll use most.
         title: "JavaScript Core",
         order: 0,
         lessons: [
-          { title: "JavaScript Introduction", type: "VIDEO" as const, youtubeId: "PkZNo7MFNFg", duration: 600, order: 0, isPreview: true },
-          { title: "Variables and Data Types", type: "VIDEO" as const, youtubeId: "IsG4Xd6LlsM", duration: 780, order: 1, isPreview: false },
-          { title: "Functions in JavaScript", type: "VIDEO" as const, youtubeId: "N8ap4k_4SqY", duration: 900, order: 2, isPreview: false },
-          { title: "Arrays and Objects", type: "VIDEO" as const, youtubeId: "orIXdOPFWeM", duration: 840, order: 3, isPreview: false },
-          { title: "DOM Manipulation", type: "VIDEO" as const, youtubeId: "5fbzHu5FZTs", duration: 960, order: 4, isPreview: false },
-          { title: "Async JavaScript", type: "VIDEO" as const, youtubeId: "PoRJizFvM7s", duration: 1020, order: 5, isPreview: false },
+          { title: "JavaScript Introduction", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "PkZNo7MFNFg", duration: 600, order: 0, isPreview: true },
+          { title: "Variables and Data Types", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "IsG4Xd6LlsM", duration: 780, order: 1, isPreview: false },
+          { title: "Functions in JavaScript", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "N8ap4k_4SqY", duration: 900, order: 2, isPreview: false },
+          { title: "Arrays and Objects", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "orIXdOPFWeM", duration: 840, order: 3, isPreview: false },
+          { title: "DOM Manipulation", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "5fbzHu5FZTs", duration: 960, order: 4, isPreview: false },
+          { title: "Async JavaScript", type: "VIDEO" as const, videoProvider: "YOUTUBE" as const, videoSrc: "PoRJizFvM7s", duration: 1020, order: 5, isPreview: false },
         ],
       },
     ],
@@ -241,6 +241,21 @@ A quick reference for the tags you'll use most.
   const { ensureUdemyStyleCourse } = await import("./ensure-sample-course");
   await ensureUdemyStyleCourse(prisma, admin.id);
 
+  const { ensureUploadedTrailerCourse } = await import(
+    "./ensure-uploaded-trailer-course"
+  );
+  await ensureUploadedTrailerCourse(prisma, admin.id);
+
+  const {
+    ensureHlsDemoCourse,
+    ensureHlsPreviewOnSampleCourse,
+  } = await import("./ensure-hls-demo-course");
+  await ensureHlsDemoCourse(prisma, admin.id);
+  await ensureHlsPreviewOnSampleCourse(prisma);
+
+  const { ensureCatalogExtras } = await import("./ensure-catalog");
+  await ensureCatalogExtras(prisma);
+
   const teacher = await prisma.user.findUnique({
     where: { email: "teacher@veolms.com" },
   });
@@ -255,7 +270,11 @@ A quick reference for the tags you'll use most.
   console.log("  Admin: admin@veolms.com / Admin@12345");
   console.log("  Instructor: teacher@veolms.com / Teacher@12345");
   console.log("  Student: student@veolms.com / Student@12345");
-  console.log("  Sample LMS course: /courses/web-dev-bootcamp");
+  console.log("  Sample LMS course (YouTube trailer): /courses/web-dev-bootcamp");
+  console.log(
+    "  Sample LMS course (uploaded trailer): /courses/product-design-bootcamp"
+  );
+  console.log("  HLS streaming demo (Free Preview): /courses/hls-streaming-demo");
   console.log("  Teacher-owned course: /courses/css-crash-course");
 }
 

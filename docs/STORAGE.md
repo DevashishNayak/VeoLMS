@@ -2,6 +2,15 @@
 
 VeoLMS supports **both** YouTube embeds and self-hosted files. Thumbnails can still be compressed data URLs or public HTTPS URLs.
 
+## Playback (one player)
+
+All sources use **Vidstack** (same controls as a modern LMS): 16:9 layout, keyboard shortcuts, speed, PiP, fullscreen, resume + progress for enrolled lessons. YouTube / Vimeo URL / uploaded mp4 should feel the same — only the CDN behind the video differs.
+
+| Source | Typical LMS use |
+|--------|------------------|
+| YouTube / Vimeo | Free previews & marketing (cheap hosting) |
+| Upload / Blob / Mux / R2 | Paid curriculum (control + no YT branding) |
+
 ## What to use when
 
 | Asset | Recommended | Why |
@@ -27,7 +36,7 @@ Without the token, admin still works — use **Paste URL** for any public HTTPS 
 
 ### 2. Cloudflare R2 (best long-term free-ish for video)
 - Permanent free tier (approx.): **10 GB storage / month**, Class A/B op allowances, **$0 egress**.
-- S3-compatible API → swap the storage helper later without changing the lesson schema (`videoUrl` / `pdfUrl` stay URLs).
+- S3-compatible API → swap the storage helper later without changing the lesson schema (`videoSrc` for FILE / `pdfUrl` stay URLs).
 
 ### 3. Amazon S3
 - **12-month** free tier (typical): ~**5 GB** storage, limited PUT/GET.
@@ -38,7 +47,7 @@ Without the token, admin still works — use **Paste URL** for any public HTTPS 
 
 Lessons are one of:
 
-- `VIDEO` — `youtubeId` and/or `videoUrl`
+- `VIDEO` — `videoProvider` + `videoSrc` (YouTube/Vimeo id, or file URL)
 - `TEXT` — markdown `content`
 - `PDF` — `pdfUrl`
 - Optional `LessonResource` rows for extra downloads
@@ -48,3 +57,13 @@ Lessons are one of:
 1. **Ship with both**: YouTube for curriculum demos + upload/URL for custom media.
 2. For the challenge: prefer **YouTube + pasted public URLs**; add **Vercel Blob** if you want one-click uploads.
 3. For real production scale: move blobs to **Cloudflare R2** (or S3 + CDN) and keep only URLs in Neon.
+
+## HLS streaming (playback)
+
+Vidstack plays **HLS** when `videoProvider = FILE` and `videoSrc` is a master `.m3u8` URL (quality ladder appears in Settings when the playlist is multi-bitrate).
+
+**Try it:** seed creates `/courses/hls-streaming-demo` (and a Free Preview on `/courses/web-dev-bootcamp`) using Mux’s public test stream:
+
+`https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`
+
+Open the lecture → **Settings → Quality**. Packaging MP4 → HLS still needs a transcoder (Mux / Cloudflare Stream / ffmpeg) — VeoLMS only stores the playlist URL today.

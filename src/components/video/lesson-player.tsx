@@ -1,15 +1,18 @@
 "use client";
 
-import { VideoPlayer } from "@/components/video/video-player";
+import type { VideoProvider } from "@prisma/client";
+import { LmsMediaPlayer } from "@/components/video/lms-media-player";
 
 interface LessonPlayerProps {
-  youtubeId: string;
+  videoProvider?: VideoProvider | null;
+  videoSrc?: string | null;
   lessonId: string;
   initialProgress: number;
 }
 
 export function LessonPlayer({
-  youtubeId,
+  videoProvider,
+  videoSrc,
   lessonId,
   initialProgress,
 }: LessonPlayerProps) {
@@ -26,8 +29,9 @@ export function LessonPlayer({
   }
 
   return (
-    <VideoPlayer
-      youtubeId={youtubeId}
+    <LmsMediaPlayer
+      videoProvider={videoProvider}
+      videoSrc={videoSrc}
       lessonId={lessonId}
       initialProgress={initialProgress}
       onProgress={handleProgress}

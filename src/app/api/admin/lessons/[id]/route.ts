@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { lessonSchema } from "@/lib/validations";
+import { normalizeVideoInput } from "@/lib/media-src";
 import {
   assertCanManageLesson,
   assertCanManageSection,
@@ -40,14 +41,41 @@ export async function PUT(
     }
   }
 
-  const data = { ...parsed.data } as Record<string, unknown>;
-  const resources = data.resources as
-    | { title: string; url: string; mimeType?: string | null }[]
-    | undefined;
-  delete data.resources;
+  const {
+    resources,
+    videoProvider,
+    videoSrc,
+    content,
+    pdfUrl,
+    description,
+    ...rest
+  } = parsed.data;
 
-  for (const key of ["youtubeId", "videoUrl", "content", "pdfUrl", "description"] as const) {
-    if (key in data && data[key] === "") data[key] = null;
+  const data: Record<string, unknown> = {
+    ...rest,
+    content: content === "" ? null : content,
+    pdfUrl: pdfUrl === "" ? null : pdfUrl,
+    description: description === "" ? null : description,
+  };
+
+  if (rest.type === "VIDEO" || videoProvider !== undefined || videoSrc !== undefined) {
+    if (rest.type && rest.type !== "VIDEO") {
+      data.videoProvider = null;
+      data.videoSrc = null;
+    } else {
+      const normalized = normalizeVideoInput({
+        provider: (videoProvider as "YOUTUBE" | "VIMEO" | "FILE" | "") || null,
+        src: videoSrc,
+      });
+      if (!normalized) {
+        return NextResponse.json(
+          { error: "Add a video: provider + id/URL" },
+          { status: 400 }
+        );
+      }
+      data.videoProvider = normalized.videoProvider;
+      data.videoSrc = normalized.videoSrc;
+    }
   }
 
   try {

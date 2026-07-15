@@ -7,8 +7,8 @@ export type PublicLesson = {
   title: string;
   description: string | null;
   type: "VIDEO" | "TEXT" | "PDF";
-  youtubeId: string | null;
-  videoUrl: string | null;
+  videoProvider: "YOUTUBE" | "VIMEO" | "FILE" | null;
+  videoSrc: string | null;
   content: string | null;
   pdfUrl: string | null;
   duration: number;
@@ -23,10 +23,18 @@ export type PublicLesson = {
   }[];
 };
 
+export type BreadcrumbCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  parent: { id: string; name: string; slug: string } | null;
+};
+
 export type PublicCourse = {
   id: string;
   title: string;
   slug: string;
+  subtitle: string;
   description: string;
   thumbnail: string;
   learningOutcomes: string[];
@@ -35,11 +43,29 @@ export type PublicCourse = {
   featured: boolean;
   published: boolean;
   deliveryType: "SELF_PACED" | "LIVE" | "OFFLINE";
+  trailerProvider: "YOUTUBE" | "VIMEO" | "FILE" | null;
+  trailerSrc: string | null;
   instructorId: string;
   createdAt: Date;
   updatedAt: Date;
   enrolled: boolean;
-  instructor: { id: string; name: string };
+  instructor: {
+    id: string;
+    name: string;
+    bio: string | null;
+    courseCount: number;
+    studentCount: number;
+  };
+  category: BreadcrumbCategory | null;
+  ratingAvg: number;
+  ratingCount: number;
+  reviews: {
+    id: string;
+    rating: number;
+    comment: string | null;
+    createdAt: Date;
+    user: { name: string };
+  }[];
   sections: {
     id: string;
     title: string;
@@ -49,7 +75,7 @@ export type PublicCourse = {
   }[];
 };
 
-export async function getCoursesWithMeta(search?: string) {
+export async function getCoursesWithMeta(search?: string, categorySlug?: string) {
   const courses = await prisma.course.findMany({
     where: {
       published: true,
@@ -57,26 +83,52 @@ export async function getCoursesWithMeta(search?: string) {
         ? {
             OR: [
               { title: { contains: search, mode: "insensitive" } },
+              { subtitle: { contains: search, mode: "insensitive" } },
               { description: { contains: search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+      ...(categorySlug
+        ? {
+            OR: [
+              { category: { slug: categorySlug } },
+              { category: { parent: { slug: categorySlug } } },
             ],
           }
         : {}),
     },
     include: {
       instructor: { select: { name: true } },
+      category: {
+        select: {
+          slug: true,
+          name: true,
+          parent: { select: { slug: true, name: true } },
+        },
+      },
       sections: { include: { lessons: { select: { duration: true } } } },
+      reviews: { select: { rating: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return courses.map((c) => ({
-    ...c,
-    lessonCount: c.sections.reduce((acc, s) => acc + s.lessons.length, 0),
-    totalDuration: c.sections.reduce(
-      (acc, s) => acc + s.lessons.reduce((a, l) => a + l.duration, 0),
-      0
-    ),
-  }));
+  return courses.map((c) => {
+    const ratingCount = c.reviews.length;
+    const ratingAvg =
+      ratingCount > 0
+        ? c.reviews.reduce((a, r) => a + r.rating, 0) / ratingCount
+        : 0;
+    return {
+      ...c,
+      lessonCount: c.sections.reduce((acc, s) => acc + s.lessons.length, 0),
+      totalDuration: c.sections.reduce(
+        (acc, s) => acc + s.lessons.reduce((a, l) => a + l.duration, 0),
+        0
+      ),
+      ratingAvg,
+      ratingCount,
+    };
+  });
 }
 
 async function viewerCanBypassPaywall(
@@ -94,10 +146,6 @@ async function viewerCanBypassPaywall(
   return false;
 }
 
-/**
- * Public course page query. Paid media is stripped unless the viewer
- * is enrolled, the lesson is Preview, or they are staff for that course.
- */
 export async function getCourseBySlug(
   slug: string,
   userId?: string
@@ -105,7 +153,39 @@ export async function getCourseBySlug(
   const course = await prisma.course.findUnique({
     where: { slug, published: true },
     include: {
-      instructor: { select: { id: true, name: true } },
+      instructor: {
+        select: {
+          id: true,
+          name: true,
+          bio: true,
+          courses: {
+            where: { published: true },
+            select: {
+              id: true,
+              _count: { select: { enrollments: true } },
+            },
+          },
+        },
+      },
+      category: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          parent: { select: { id: true, name: true, slug: true } },
+        },
+      },
+      reviews: {
+        orderBy: { createdAt: "desc" },
+        take: 12,
+        select: {
+          id: true,
+          rating: true,
+          comment: true,
+          createdAt: true,
+          user: { select: { name: true } },
+        },
+      },
       sections: {
         orderBy: { order: "asc" },
         include: {
@@ -125,12 +205,25 @@ export async function getCourseBySlug(
           },
         },
       },
+      _count: { select: { reviews: true } },
     },
   });
   if (!course) return null;
 
   const enrolled = userId ? await isEnrolled(userId, course.id) : false;
   const staffBypass = await viewerCanBypassPaywall(userId, course.instructorId);
+
+  const allRatings = await prisma.courseReview.aggregate({
+    where: { courseId: course.id },
+    _avg: { rating: true },
+    _count: true,
+  });
+
+  const instructorCourseCount = course.instructor.courses.length;
+  const instructorStudentCount = course.instructor.courses.reduce(
+    (n, c) => n + c._count.enrollments,
+    0
+  );
 
   const sections: PublicCourse["sections"] = course.sections.map((section) => ({
     id: section.id,
@@ -145,8 +238,8 @@ export async function getCourseBySlug(
         title: safe.title,
         description: safe.description,
         type: safe.type,
-        youtubeId: safe.youtubeId,
-        videoUrl: safe.videoUrl,
+        videoProvider: safe.videoProvider as PublicLesson["videoProvider"],
+        videoSrc: safe.videoSrc,
         content: safe.content,
         pdfUrl: safe.pdfUrl,
         duration: safe.duration,
@@ -167,6 +260,7 @@ export async function getCourseBySlug(
     id: course.id,
     title: course.title,
     slug: course.slug,
+    subtitle: course.subtitle,
     description: course.description,
     thumbnail: course.thumbnail,
     learningOutcomes: course.learningOutcomes,
@@ -175,36 +269,29 @@ export async function getCourseBySlug(
     featured: course.featured,
     published: course.published,
     deliveryType: course.deliveryType,
+    trailerProvider: course.trailerProvider,
+    trailerSrc: course.trailerSrc,
     instructorId: course.instructorId,
     createdAt: course.createdAt,
     updatedAt: course.updatedAt,
     enrolled,
-    instructor: course.instructor,
+    instructor: {
+      id: course.instructor.id,
+      name: course.instructor.name,
+      bio: course.instructor.bio,
+      courseCount: instructorCourseCount,
+      studentCount: instructorStudentCount,
+    },
+    category: course.category,
+    ratingAvg: allRatings._avg.rating ?? 0,
+    ratingCount: allRatings._count,
+    reviews: course.reviews,
     sections,
   };
 }
 
 export async function getFeaturedCourses() {
-  const featured = await prisma.course.findMany({
-    where: { published: true, featured: true },
-    include: {
-      instructor: { select: { name: true } },
-      sections: { include: { lessons: { select: { duration: true } } } },
-    },
-    take: 6,
-  });
-
-  if (featured.length > 0) {
-    return featured.map((c) => ({
-      ...c,
-      lessonCount: c.sections.reduce((acc, s) => acc + s.lessons.length, 0),
-      totalDuration: c.sections.reduce(
-        (acc, s) => acc + s.lessons.reduce((a, l) => a + l.duration, 0),
-        0
-      ),
-    }));
-  }
-
-  const all = await getCoursesWithMeta();
-  return all.slice(0, 3);
+  const featured = await getCoursesWithMeta();
+  const onlyFeatured = featured.filter((c) => c.featured);
+  return (onlyFeatured.length > 0 ? onlyFeatured : featured).slice(0, 6);
 }

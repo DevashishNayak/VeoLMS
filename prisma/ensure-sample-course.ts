@@ -14,6 +14,12 @@ export async function ensureUdemyStyleCourse(
     include: { sections: { include: { lessons: true } } },
   });
   if (existing && existing.sections.length >= 3) {
+    if (!existing.trailerProvider || !existing.trailerSrc) {
+      await prisma.course.update({
+        where: { id: existing.id },
+        data: { trailerProvider: "YOUTUBE", trailerSrc: "PkZNo7MFNFg" },
+      });
+    }
     console.log(`  Sample course already present: /courses/${slug}`);
     return existing.id;
   }
@@ -26,21 +32,38 @@ export async function ensureUdemyStyleCourse(
     data: {
       title: "The Complete Web Development Bootcamp",
       slug,
-      description:
-        "A Udemy-style full course experience on VeoLMS. Mix of video lectures, reading articles, and PDF handouts — organized into clear sections with free previews so you can try before you enroll.\n\nYou'll go from HTML basics through styling and JavaScript fundamentals, then finish with a small project checklist.",
+      description: `A Udemy-style full course experience on VeoLMS. Mix of video lectures, reading articles, and PDF handouts — organized into clear sections with free previews so you can try before you enroll.
+
+You'll go from HTML basics through styling and JavaScript fundamentals, then finish with a small project checklist. Each section builds on the last, so you can pause and resume without losing your place.
+
+What this course covers
+• Semantic HTML structure for multipage sites
+• Flexbox and responsive CSS layouts used in production
+• JavaScript fundamentals for DOM interactivity
+• How to organize an LMS curriculum with previews and enrolled lessons
+• Using progress tracking so you know what to study next
+
+How to learn with VeoLMS
+Open free Preview lectures from the curriculum without enrolling. After you enroll, the sticky purchase card becomes your progress hub — resume where you left off, and mark lectures complete as you go. Prefer reading? Several lectures include article content and downloadable PDF handouts alongside the videos.
+
+Who this is for
+Absolute beginners who want a realistic LMS experience, instructors evaluating how VeoLMS presents a mixed media course, and developers comparing trailer, curriculum, and player UX before building their own catalog.
+
+By the end you will have built small pages, practiced CSS layout, written interactive scripts, and used the same patterns real students see when they buy a course on VeoLMS.`,
       thumbnail:
         "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1200",
       priceInPaise: 99900,
       featured: true,
       published: true,
       deliveryType: "SELF_PACED",
+      trailerProvider: "YOUTUBE", trailerSrc: "PkZNo7MFNFg",
       instructorId,
       learningOutcomes: [
-        "Build multipage HTML structures with semantic tags",
-        "Style layouts with Flexbox and responsive CSS",
-        "Write JavaScript for interactivity and the DOM",
-        "Follow a project checklist from idea to shipped page",
-        "Use a real LMS player with progress tracking",
+        "Build multipage HTML with semantic tags",
+        "Style layouts with Flexbox and CSS",
+        "Write JavaScript for the DOM",
+        "Ship a small project from idea to page",
+        "Use the LMS player with progress tracking",
       ],
       requirements: [
         "A laptop or desktop with a modern browser",
@@ -57,7 +80,7 @@ export async function ensureUdemyStyleCourse(
                 {
                   title: "Welcome & how this course works",
                   type: "VIDEO",
-                  youtubeId: "PkZNo7MFNFg",
+                  videoProvider: "YOUTUBE" as const, videoSrc: "PkZNo7MFNFg",
                   duration: 480,
                   order: 0,
                   isPreview: true,
@@ -106,7 +129,7 @@ You're ready for HTML.
                 {
                   title: "HTML document structure",
                   type: "VIDEO",
-                  youtubeId: "qz0aGYrrlhU",
+                  videoProvider: "YOUTUBE" as const, videoSrc: "qz0aGYrrlhU",
                   duration: 720,
                   order: 0,
                   isPreview: true,
@@ -116,7 +139,7 @@ You're ready for HTML.
                 {
                   title: "Links, images & lists",
                   type: "VIDEO",
-                  youtubeId: "9OV1eJ2_euI",
+                  videoProvider: "YOUTUBE" as const, videoSrc: "9OV1eJ2_euI",
                   duration: 900,
                   order: 1,
                   isPreview: false,
@@ -160,7 +183,7 @@ Always add meaningful \`alt\` text on images.
                 {
                   title: "CSS selectors & box model",
                   type: "VIDEO",
-                  youtubeId: "yfoY53QXEnI",
+                  videoProvider: "YOUTUBE" as const, videoSrc: "yfoY53QXEnI",
                   duration: 780,
                   order: 0,
                   isPreview: false,
@@ -168,7 +191,7 @@ Always add meaningful \`alt\` text on images.
                 {
                   title: "Flexbox layouts",
                   type: "VIDEO",
-                  youtubeId: "JJSoEo8JSnc",
+                  videoProvider: "YOUTUBE" as const, videoSrc: "JJSoEo8JSnc",
                   duration: 1200,
                   order: 1,
                   isPreview: false,
@@ -200,7 +223,7 @@ Always add meaningful \`alt\` text on images.
                 {
                   title: "Variables, functions & DOM",
                   type: "VIDEO",
-                  youtubeId: "PkZNo7MFNFg",
+                  videoProvider: "YOUTUBE" as const, videoSrc: "PkZNo7MFNFg",
                   duration: 900,
                   order: 0,
                   isPreview: false,
@@ -235,7 +258,7 @@ Bonus: toggle a dark mode class with JavaScript.
                 {
                   title: "Congratulations & next steps",
                   type: "VIDEO",
-                  youtubeId: "PoRJizFvM7s",
+                  videoProvider: "YOUTUBE" as const, videoSrc: "PoRJizFvM7s",
                   duration: 540,
                   order: 2,
                   isPreview: false,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { lessonSchema } from "@/lib/validations";
+import { normalizeVideoInput } from "@/lib/media-src";
 import {
   assertCanManageSection,
   coursesOwnedWhere,
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
   if (q) {
     where.OR = [
       { title: { contains: q, mode: "insensitive" } },
-      { youtubeId: { contains: q, mode: "insensitive" } },
+      { videoSrc: { contains: q, mode: "insensitive" } },
       { content: { contains: q, mode: "insensitive" } },
       { section: { title: { contains: q, mode: "insensitive" } } },
       { section: { course: { title: { contains: q, mode: "insensitive" } } } },
@@ -100,8 +101,8 @@ export async function POST(request: Request) {
     sectionId,
     title,
     type,
-    youtubeId,
-    videoUrl,
+    videoProvider,
+    videoSrc,
     content,
     pdfUrl,
     description,
@@ -122,13 +123,30 @@ export async function POST(request: Request) {
       })
     )._max.order ?? -1) + 1;
 
+  let provider: "YOUTUBE" | "VIMEO" | "FILE" | null = null;
+  let src: string | null = null;
+  if (type === "VIDEO") {
+    const normalized = normalizeVideoInput({
+      provider: (videoProvider as "YOUTUBE" | "VIMEO" | "FILE" | "") || null,
+      src: videoSrc,
+    });
+    if (!normalized) {
+      return NextResponse.json(
+        { error: "Add a video: provider + id/URL" },
+        { status: 400 }
+      );
+    }
+    provider = normalized.videoProvider;
+    src = normalized.videoSrc;
+  }
+
   const lesson = await prisma.lesson.create({
     data: {
       sectionId,
       title,
       type,
-      youtubeId: youtubeId || null,
-      videoUrl: videoUrl || null,
+      videoProvider: provider,
+      videoSrc: src,
       content: content || null,
       pdfUrl: pdfUrl || null,
       description: description ?? null,

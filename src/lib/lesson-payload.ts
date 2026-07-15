@@ -4,22 +4,26 @@
  */
 
 export type LessonMediaFields = {
-  youtubeId?: string | null;
-  videoUrl?: string | null;
+  videoProvider?: string | null;
+  videoSrc?: string | null;
   content?: string | null;
   pdfUrl?: string | null;
   description?: string | null;
   resources?: { id?: string; title: string; url: string; mimeType?: string | null }[];
 };
 
-/** Fields that must never leave the server for locked (paid) lessons. */
 const LOCKED_NULL = {
-  youtubeId: null,
-  videoUrl: null,
+  videoProvider: null as string | null,
+  videoSrc: null as string | null,
   content: null,
   pdfUrl: null,
   description: null as string | null,
-  resources: [] as { id?: string; title: string; url: string; mimeType?: string | null }[],
+  resources: [] as {
+    id?: string;
+    title: string;
+    url: string;
+    mimeType?: string | null;
+  }[],
 };
 
 export function sanitizeLessonPayload<T extends LessonMediaFields>(
@@ -33,7 +37,6 @@ export function sanitizeLessonPayload<T extends LessonMediaFields>(
   };
 }
 
-/** Prisma select for curriculum lists (no paid bodies). */
 export const lessonCatalogSelect = {
   id: true,
   title: true,
@@ -44,14 +47,13 @@ export const lessonCatalogSelect = {
   description: true,
 } as const;
 
-/** Prisma select for full media (only after canAccessLesson). */
 export const lessonContentSelect = {
   id: true,
   title: true,
   description: true,
   type: true,
-  youtubeId: true,
-  videoUrl: true,
+  videoProvider: true,
+  videoSrc: true,
   content: true,
   pdfUrl: true,
   duration: true,

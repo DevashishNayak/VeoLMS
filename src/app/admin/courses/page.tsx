@@ -48,12 +48,22 @@ import {
 
 const empty = {
   title: "",
+  subtitle: "",
   description: "",
   thumbnail: "",
   priceInPaise: 49900,
   featured: false,
   published: true,
   deliveryType: "SELF_PACED" as "SELF_PACED" | "LIVE" | "OFFLINE",
+  learningOutcomes: [
+    "Build real projects with clear guidance",
+    "Learn core concepts through video lessons",
+    "Practice with notes and downloadable resources",
+    "Track progress through every lecture",
+  ],
+  requirements: [
+    "A computer with internet access and a modern browser",
+  ],
 };
 
 const defaultMeta: PageMeta = {
@@ -335,24 +345,40 @@ function AdminCoursesPageInner() {
       >
         <form onSubmit={createCourse} className="space-y-4">
           <div>
-            <Label>Title</Label>
+            <Label>Title (5–80 chars)</Label>
             <Input
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               required
-              minLength={3}
+              minLength={5}
+              maxLength={80}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Aim for ≤60 chars so the course hero stays one line
+            </p>
+          </div>
+          <div>
+            <Label>Subtitle (20–160 chars)</Label>
+            <Input
+              value={form.subtitle}
+              onChange={(e) => setForm({ ...form, subtitle: e.target.value })}
+              required
+              minLength={20}
+              maxLength={160}
+              placeholder="Short pitch for cards and the course hero"
             />
           </div>
           <div>
-            <Label>Description</Label>
+            <Label>Full description (80+ chars)</Label>
             <Textarea
               value={form.description}
               onChange={(e) =>
                 setForm({ ...form, description: e.target.value })
               }
               required
-              minLength={10}
-              rows={3}
+              minLength={80}
+              rows={5}
+              placeholder="Long description shown in the Description section"
             />
           </div>
           <ImageUploadField

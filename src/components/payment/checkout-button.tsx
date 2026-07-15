@@ -36,6 +36,8 @@ interface CheckoutButtonProps {
   priceInPaise: number;
   userName?: string;
   userEmail?: string;
+  /** Defaults to “Buy for ₹…” / “Enroll for Free”. */
+  label?: string;
 }
 
 export function CheckoutButton({
@@ -44,6 +46,7 @@ export function CheckoutButton({
   priceInPaise,
   userName,
   userEmail,
+  label,
 }: CheckoutButtonProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -113,9 +116,10 @@ export function CheckoutButton({
       >
         {loading
           ? "Processing..."
-          : priceInPaise === 0
-            ? "Enroll for Free"
-            : `Buy for ${formatPrice(priceInPaise)}`}
+          : label ??
+            (priceInPaise === 0
+              ? "Enroll for Free"
+              : `Buy for ${formatPrice(priceInPaise)}`)}
       </Button>
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </>

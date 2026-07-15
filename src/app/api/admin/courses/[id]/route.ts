@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { courseSchema } from "@/lib/validations";
+import { normalizeVideoInput } from "@/lib/media-src";
 import {
   assertCanManageCourse,
   forbidden,
@@ -60,8 +61,23 @@ export async function PUT(
     );
   }
 
-  const { instructorId: requestedInstructor, ...data } = parsed.data;
-  const updateData: typeof data & { instructorId?: string } = { ...data };
+  const {
+    instructorId: requestedInstructor,
+    trailerProvider,
+    trailerSrc,
+    categoryId,
+    ...data
+  } = parsed.data;
+  const updateData: typeof data & {
+    instructorId?: string;
+    trailerProvider?: "YOUTUBE" | "VIMEO" | "FILE" | null;
+    trailerSrc?: string | null;
+    categoryId?: string | null;
+  } = { ...data };
+
+  if (categoryId !== undefined) {
+    updateData.categoryId = categoryId === "" || categoryId == null ? null : categoryId;
+  }
 
   if (session.user.role === "ADMIN" && requestedInstructor) {
     const instructor = await prisma.user.findFirst({
@@ -78,6 +94,25 @@ export async function PUT(
       );
     }
     updateData.instructorId = instructor.id;
+  }
+
+  if (trailerProvider !== undefined || trailerSrc !== undefined) {
+    const normalized = normalizeVideoInput({
+      provider: (trailerProvider as "YOUTUBE" | "VIMEO" | "FILE" | "") || null,
+      src: trailerSrc ?? "",
+    });
+    if (!trailerSrc || String(trailerSrc).trim() === "") {
+      updateData.trailerProvider = null;
+      updateData.trailerSrc = null;
+    } else if (!normalized) {
+      return NextResponse.json(
+        { error: "Invalid course preview video (provider + id/URL)" },
+        { status: 400 }
+      );
+    } else {
+      updateData.trailerProvider = normalized.videoProvider;
+      updateData.trailerSrc = normalized.videoSrc;
+    }
   }
 
   const course = await prisma.course.update({

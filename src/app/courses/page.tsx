@@ -1,26 +1,27 @@
-import { Suspense } from "react";
 import { CourseCard } from "@/components/course/course-card";
 import { getCoursesWithMeta } from "@/lib/courses";
 
 interface PageProps {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; category?: string }>;
 }
 
 export default async function CoursesPage({ searchParams }: PageProps) {
-  const { q } = await searchParams;
-  const courses = await getCoursesWithMeta(q);
+  const { q, category } = await searchParams;
+  const courses = await getCoursesWithMeta(q, category);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="text-3xl font-bold text-slate-900">All Courses</h1>
-      <p className="mt-2 text-slate-600">
+      <h1 className="text-3xl font-bold text-foreground">All Courses</h1>
+      <p className="mt-2 text-muted-foreground">
         {q
           ? `Showing results for "${q}"`
-          : "Discover courses in web development"}
+          : category
+            ? `Category: ${category.replace(/-/g, " ")}`
+            : "Discover courses and learn at your pace"}
       </p>
 
       {courses.length === 0 ? (
-        <p className="mt-12 text-center text-slate-500">No courses found.</p>
+        <p className="mt-12 text-center text-muted-foreground">No courses found.</p>
       ) : (
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {courses.map((course) => (

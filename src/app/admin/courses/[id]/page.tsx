@@ -21,6 +21,10 @@ import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { FileUploadField } from "@/components/admin/file-upload-field";
+import {
+  VideoSourceFields,
+  type VideoProviderValue,
+} from "@/components/admin/video-source-fields";
 import { cn } from "@/lib/utils";
 import {
   apiJson,
@@ -30,14 +34,15 @@ import {
   type AdminLesson,
   type AdminSection,
 } from "@/components/admin/types";
+import { COURSE_LIMITS } from "@/lib/course-limits";
 import { useInvalidateAdmin } from "@/lib/admin-cache";
 
 type LessonForm = {
   title: string;
   description: string;
   type: "VIDEO" | "TEXT" | "PDF";
-  youtubeId: string;
-  videoUrl: string;
+  videoProvider: VideoProviderValue;
+  videoSrc: string;
   content: string;
   pdfUrl: string;
   duration: number;
@@ -51,8 +56,8 @@ const emptyLesson: LessonForm = {
   title: "",
   description: "",
   type: "VIDEO",
-  youtubeId: "",
-  videoUrl: "",
+  videoProvider: "YOUTUBE",
+  videoSrc: "",
   content: "",
   pdfUrl: "",
   duration: 600,
@@ -76,6 +81,7 @@ export default function AdminCourseDetailPage() {
 
   const [meta, setMeta] = useState({
     title: "",
+    subtitle: "",
     description: "",
     thumbnail: "",
     priceInPaise: 0,
@@ -83,11 +89,17 @@ export default function AdminCourseDetailPage() {
     published: true,
     deliveryType: "SELF_PACED" as "SELF_PACED" | "LIVE" | "OFFLINE",
     instructorId: "",
+    categoryId: "",
+    trailerProvider: "" as VideoProviderValue,
+    trailerSrc: "",
     learningOutcomesText: "",
     requirementsText: "",
   });
   const [staffUsers, setStaffUsers] = useState<
     { id: string; name: string; email: string; role: string }[]
+  >([]);
+  const [categories, setCategories] = useState<
+    { id: string; name: string; parentName?: string | null }[]
   >([]);
 
   const [sectionModal, setSectionModal] = useState<{
@@ -121,6 +133,7 @@ export default function AdminCourseDetailPage() {
     setCourse(c);
     setMeta({
       title: c.title,
+      subtitle: c.subtitle ?? "",
       description: c.description,
       thumbnail: c.thumbnail,
       priceInPaise: c.priceInPaise,
@@ -128,6 +141,9 @@ export default function AdminCourseDetailPage() {
       published: c.published,
       deliveryType: c.deliveryType ?? "SELF_PACED",
       instructorId: c.instructorId ?? c.instructor?.id ?? "",
+      categoryId: c.categoryId ?? "",
+      trailerProvider: (c.trailerProvider ?? "") as VideoProviderValue,
+      trailerSrc: c.trailerSrc ?? "",
       learningOutcomesText: (c.learningOutcomes ?? []).join("\n"),
       requirementsText: (c.requirements ?? []).join("\n"),
     });
@@ -152,6 +168,11 @@ export default function AdminCourseDetailPage() {
     }>("/api/admin/users?forSelect=1&staff=1").then((res) => {
       if (res.ok) setStaffUsers(res.data.users);
     });
+    void apiJson<{
+      categories: { id: string; name: string; parentName?: string | null }[];
+    }>("/api/admin/categories?forSelect=1").then((res) => {
+      if (res.ok) setCategories(res.data.categories);
+    });
   }, []);
 
   async function saveMeta(e: React.FormEvent) {
@@ -167,12 +188,16 @@ export default function AdminCourseDetailPage() {
       method: "PUT",
       body: JSON.stringify({
         title: meta.title,
+        subtitle: meta.subtitle,
         description: meta.description,
         thumbnail: meta.thumbnail,
         priceInPaise: Number(meta.priceInPaise),
         featured: meta.featured,
         published: meta.published,
         deliveryType: meta.deliveryType,
+        categoryId: meta.categoryId || null,
+        trailerProvider: meta.trailerProvider || null,
+        trailerSrc: meta.trailerSrc || null,
         ...(staffUsers.length && meta.instructorId
           ? { instructorId: meta.instructorId }
           : {}),
@@ -280,8 +305,8 @@ export default function AdminCourseDetailPage() {
       title: lessonForm.title,
       description: lessonForm.description || null,
       type: lessonForm.type,
-      youtubeId: lessonForm.youtubeId,
-      videoUrl: lessonForm.videoUrl,
+      videoProvider: lessonForm.videoProvider || null,
+      videoSrc: lessonForm.videoSrc,
       content: lessonForm.content,
       pdfUrl: lessonForm.pdfUrl,
       duration: Number(lessonForm.duration),
@@ -450,44 +475,107 @@ export default function AdminCourseDetailPage() {
             <div className="flex min-h-0 flex-col gap-3 lg:overflow-y-auto">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="sm:col-span-2">
-                  <Label>Title</Label>
+                  <Label>
+                    Title ({COURSE_LIMITS.title.min}–{COURSE_LIMITS.title.max}{" "}
+                    chars)
+                  </Label>
                   <Input
                     value={meta.title}
                     onChange={(e) => setMeta({ ...meta, title: e.target.value })}
+                    maxLength={COURSE_LIMITS.title.max}
                     required
                   />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {meta.title.length}/{COURSE_LIMITS.title.max} — aim for ≤
+                    {COURSE_LIMITS.title.recommended} so the hero stays one line
+                  </p>
                 </div>
                 <div className="sm:col-span-2">
-                  <Label>Description</Label>
+                  <Label>Subtitle / card pitch (20–160 chars)</Label>
+                  <Input
+                    value={meta.subtitle}
+                    onChange={(e) =>
+                      setMeta({ ...meta, subtitle: e.target.value })
+                    }
+                    maxLength={160}
+                    placeholder="Short line shown on cards and under the hero title"
+                    required
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {meta.subtitle.length}/160 — keep short; UI truncates with line-clamp (don’t type …)
+                  </p>
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>Full description (80+ chars)</Label>
                   <Textarea
-                    rows={4}
+                    rows={8}
                     value={meta.description}
                     onChange={(e) =>
                       setMeta({ ...meta, description: e.target.value })
                     }
+                    placeholder="Long-form description for the Description section (not the same as subtitle)"
                     required
                   />
                 </div>
+                {categories.length > 0 && (
+                  <div className="sm:col-span-2">
+                    <Label>Category</Label>
+                    <select
+                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                      value={meta.categoryId}
+                      onChange={(e) =>
+                        setMeta({ ...meta, categoryId: e.target.value })
+                      }
+                    >
+                      <option value="">No category</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.parentName
+                            ? `${cat.parentName} › ${cat.name}`
+                            : cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="sm:col-span-2">
-                  <Label>What you’ll learn (one per line)</Label>
+                  <Label>
+                    What you’ll learn ({COURSE_LIMITS.outcomes.min}–
+                    {COURSE_LIMITS.outcomes.max} lines, ≤
+                    {COURSE_LIMITS.outcome.max} chars each)
+                  </Label>
                   <Textarea
-                    rows={4}
+                    rows={5}
                     value={meta.learningOutcomesText}
                     onChange={(e) =>
                       setMeta({ ...meta, learningOutcomesText: e.target.value })
                     }
-                    placeholder={"Build responsive layouts\nMaster Flexbox"}
+                    placeholder={
+                      "Build responsive layouts with Flexbox\nMaster modern CSS Grid patterns\nShip a small project end to end\nTrack progress lecture by lecture"
+                    }
                   />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    One outcome per line. Aim for ≤
+                    {COURSE_LIMITS.outcome.recommended} chars so each stays one
+                    line in the 2-column list.
+                    {meta.learningOutcomesText
+                      .split("\n")
+                      .map((l) => l.trim())
+                      .filter(Boolean)
+                      .some((l) => l.length > COURSE_LIMITS.outcome.recommended)
+                      ? " Some lines are longer — consider shortening."
+                      : null}
+                  </p>
                 </div>
                 <div className="sm:col-span-2">
-                  <Label>Requirements (one per line)</Label>
+                  <Label>Requirements (1–8 lines, 8–150 chars each)</Label>
                   <Textarea
                     rows={3}
                     value={meta.requirementsText}
                     onChange={(e) =>
                       setMeta({ ...meta, requirementsText: e.target.value })
                     }
-                    placeholder={"A computer with a browser\nNo paid tools needed"}
+                    placeholder={"A computer with a modern browser\nNo paid tools needed"}
                   />
                 </div>
                 <div>
@@ -544,6 +632,28 @@ export default function AdminCourseDetailPage() {
                     </select>
                   </div>
                 )}
+                <div className="sm:col-span-2 space-y-3 rounded-xl border border-border bg-muted/20 p-4">
+                  <div>
+                    <Label>Course preview video (landing page)</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Plays from the purchase card (play → large popup). Same
+                      provider + src model as lectures (YouTube, Vimeo, or file).
+                      Leave empty to fall back to the first Free Preview lecture.
+                    </p>
+                  </div>
+                  <VideoSourceFields
+                    idPrefix="trailer"
+                    label="Preview"
+                    provider={meta.trailerProvider}
+                    src={meta.trailerSrc}
+                    onProviderChange={(trailerProvider) =>
+                      setMeta({ ...meta, trailerProvider })
+                    }
+                    onSrcChange={(trailerSrc) =>
+                      setMeta({ ...meta, trailerSrc })
+                    }
+                  />
+                </div>
                 <div className="flex flex-wrap items-end gap-2 pb-1 sm:col-span-2">
                   <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
                     <input
@@ -738,8 +848,10 @@ export default function AdminCourseDetailPage() {
                                             description:
                                               lesson.description ?? "",
                                             type: lesson.type,
-                                            youtubeId: lesson.youtubeId ?? "",
-                                            videoUrl: lesson.videoUrl ?? "",
+                                            videoProvider:
+                                              (lesson.videoProvider ??
+                                                "YOUTUBE") as VideoProviderValue,
+                                            videoSrc: lesson.videoSrc ?? "",
                                             content: lesson.content ?? "",
                                             pdfUrl: lesson.pdfUrl ?? "",
                                             duration: lesson.duration,
@@ -867,24 +979,15 @@ export default function AdminCourseDetailPage() {
           </div>
           {lessonForm.type === "VIDEO" && (
             <>
-              <div>
-                <Label>YouTube video ID</Label>
-                <Input
-                  value={lessonForm.youtubeId}
-                  onChange={(e) =>
-                    setLessonForm({ ...lessonForm, youtubeId: e.target.value })
-                  }
-                  placeholder="e.g. qz0aGYrrlhU"
-                />
-              </div>
-              <FileUploadField
-                label="Video file / URL"
-                kind="video"
-                value={lessonForm.videoUrl}
-                onChange={(videoUrl) =>
-                  setLessonForm({ ...lessonForm, videoUrl })
+              <VideoSourceFields
+                provider={lessonForm.videoProvider}
+                src={lessonForm.videoSrc}
+                onProviderChange={(videoProvider) =>
+                  setLessonForm({ ...lessonForm, videoProvider })
                 }
-                hint="Optional if a YouTube ID is set"
+                onSrcChange={(videoSrc) =>
+                  setLessonForm({ ...lessonForm, videoSrc })
+                }
               />
               <div>
                 <Label>Notes (optional markdown)</Label>

@@ -3,8 +3,8 @@ export type AdminLesson = {
   title: string;
   description: string | null;
   type: "VIDEO" | "TEXT" | "PDF";
-  youtubeId: string | null;
-  videoUrl: string | null;
+  videoProvider: "YOUTUBE" | "VIMEO" | "FILE" | null;
+  videoSrc: string | null;
   content: string | null;
   pdfUrl: string | null;
   duration: number;
@@ -26,6 +26,7 @@ export type AdminCourse = {
   id: string;
   title: string;
   slug: string;
+  subtitle?: string;
   description: string;
   thumbnail: string;
   learningOutcomes?: string[];
@@ -34,6 +35,9 @@ export type AdminCourse = {
   featured: boolean;
   published: boolean;
   deliveryType?: "SELF_PACED" | "LIVE" | "OFFLINE";
+  trailerProvider?: "YOUTUBE" | "VIMEO" | "FILE" | null;
+  trailerSrc?: string | null;
+  categoryId?: string | null;
   createdAt?: string;
   instructorId?: string;
   instructor?: { id?: string; name: string; email?: string };

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { courseSchema } from "@/lib/validations";
+import { normalizeVideoInput } from "@/lib/media-src";
 import { slugify } from "@/lib/utils";
 import { pageMeta, parseListQuery } from "@/lib/admin-query";
 import {
@@ -96,7 +97,13 @@ export async function POST(request: Request) {
     const existing = await prisma.course.findUnique({ where: { slug } });
     if (existing) slug = `${slug}-${Date.now()}`;
 
-    const { instructorId: requestedInstructor, ...data } = parsed.data;
+    const {
+      instructorId: requestedInstructor,
+      trailerProvider,
+      trailerSrc,
+      categoryId,
+      ...data
+    } = parsed.data;
     let instructorId = session.user.id;
     if (session.user.role === "ADMIN" && requestedInstructor) {
       const instructor = await prisma.user.findFirst({
@@ -115,12 +122,20 @@ export async function POST(request: Request) {
       instructorId = instructor.id;
     }
 
+    const trailer = normalizeVideoInput({
+      provider: (trailerProvider as "YOUTUBE" | "VIMEO" | "FILE" | "") || null,
+      src: trailerSrc,
+    });
+
     const course = await prisma.course.create({
       data: {
         ...data,
         slug,
         instructorId,
+        categoryId: categoryId === "" || !categoryId ? null : categoryId,
         deliveryType: data.deliveryType ?? "SELF_PACED",
+        trailerProvider: trailer?.videoProvider ?? null,
+        trailerSrc: trailer?.videoSrc ?? null,
       },
     });
     return NextResponse.json({ course }, { status: 201 });
