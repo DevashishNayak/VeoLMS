@@ -75,60 +75,232 @@ export type PublicCourse = {
   }[];
 };
 
-export async function getCoursesWithMeta(search?: string, categorySlug?: string) {
-  const courses = await prisma.course.findMany({
-    where: {
-      published: true,
-      ...(search
-        ? {
-            OR: [
-              { title: { contains: search, mode: "insensitive" } },
-              { subtitle: { contains: search, mode: "insensitive" } },
-              { description: { contains: search, mode: "insensitive" } },
-            ],
-          }
-        : {}),
-      ...(categorySlug
-        ? {
-            OR: [
-              { category: { slug: categorySlug } },
-              { category: { parent: { slug: categorySlug } } },
-            ],
-          }
-        : {}),
+export type CourseCardData = {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle: string;
+  thumbnail: string;
+  priceInPaise: number;
+  featured: boolean;
+  instructor: { name: string };
+  category: {
+    name: string;
+    parent: { name: string } | null;
+  } | null;
+  sectionCount: number;
+  lessonCount: number;
+  totalDuration: number;
+  ratingAvg: number;
+  ratingCount: number;
+};
+
+export type CourseSort =
+  | "newest"
+  | "oldest"
+  | "price-asc"
+  | "price-desc"
+  | "title"
+  | "rating";
+
+export type CourseCatalogResult = {
+  courses: CourseCardData[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+const courseListInclude = {
+  instructor: { select: { name: true } },
+  category: {
+    select: {
+      slug: true,
+      name: true,
+      parent: { select: { slug: true, name: true } },
     },
-    include: {
-      instructor: { select: { name: true } },
-      category: {
-        select: {
-          slug: true,
-          name: true,
-          parent: { select: { slug: true, name: true } },
+  },
+  sections: { include: { lessons: { select: { duration: true } } } },
+  reviews: { select: { rating: true } },
+} as const;
+
+function mapCourseCard(
+  c: {
+    id: string;
+    slug: string;
+    title: string;
+    subtitle: string;
+    thumbnail: string;
+    priceInPaise: number;
+    featured: boolean;
+    instructor: { name: string };
+    category: {
+      name: string;
+      parent: { name: string } | null;
+    } | null;
+    sections: { lessons: { duration: number }[] }[];
+    reviews: { rating: number }[];
+  }
+): CourseCardData {
+  const ratingCount = c.reviews.length;
+  const ratingAvg =
+    ratingCount > 0
+      ? c.reviews.reduce((a, r) => a + r.rating, 0) / ratingCount
+      : 0;
+  return {
+    id: c.id,
+    slug: c.slug,
+    title: c.title,
+    subtitle: c.subtitle,
+    thumbnail: c.thumbnail,
+    priceInPaise: c.priceInPaise,
+    featured: c.featured,
+    instructor: c.instructor,
+    category: c.category
+      ? {
+          name: c.category.name,
+          parent: c.category.parent
+            ? { name: c.category.parent.name }
+            : null,
+        }
+      : null,
+    sectionCount: c.sections.length,
+    lessonCount: c.sections.reduce((acc, s) => acc + s.lessons.length, 0),
+    totalDuration: c.sections.reduce(
+      (acc, s) => acc + s.lessons.reduce((a, l) => a + l.duration, 0),
+      0
+    ),
+    ratingAvg,
+    ratingCount,
+  };
+}
+
+function courseListWhere(
+  search?: string,
+  categorySlug?: string,
+  featuredOnly?: boolean
+) {
+  const and: object[] = [];
+  if (search) {
+    and.push({
+      OR: [
+        { title: { contains: search, mode: "insensitive" as const } },
+        { subtitle: { contains: search, mode: "insensitive" as const } },
+        {
+          description: { contains: search, mode: "insensitive" as const },
         },
-      },
-      sections: { include: { lessons: { select: { duration: true } } } },
-      reviews: { select: { rating: true } },
-    },
+      ],
+    });
+  }
+  if (categorySlug) {
+    and.push({
+      OR: [
+        { category: { slug: categorySlug } },
+        { category: { parent: { slug: categorySlug } } },
+      ],
+    });
+  }
+  return {
+    published: true as const,
+    ...(featuredOnly ? { featured: true } : {}),
+    ...(and.length > 0 ? { AND: and } : {}),
+  };
+}
+
+export async function getCoursesWithMeta(
+  search?: string,
+  categorySlug?: string,
+  featuredOnly?: boolean
+): Promise<CourseCardData[]> {
+  const courses = await prisma.course.findMany({
+    where: courseListWhere(search, categorySlug, featuredOnly),
+    include: courseListInclude,
     orderBy: { createdAt: "desc" },
   });
 
-  return courses.map((c) => {
-    const ratingCount = c.reviews.length;
-    const ratingAvg =
-      ratingCount > 0
-        ? c.reviews.reduce((a, r) => a + r.rating, 0) / ratingCount
-        : 0;
-    return {
-      ...c,
-      lessonCount: c.sections.reduce((acc, s) => acc + s.lessons.length, 0),
-      totalDuration: c.sections.reduce(
-        (acc, s) => acc + s.lessons.reduce((a, l) => a + l.duration, 0),
-        0
-      ),
-      ratingAvg,
-      ratingCount,
-    };
+  return courses.map(mapCourseCard);
+}
+
+export async function getPublicCategories() {
+  return prisma.category.findMany({
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      parentId: true,
+      parent: { select: { name: true } },
+    },
+    orderBy: [{ parentId: "asc" }, { name: "asc" }],
   });
+}
+
+export async function getCoursesCatalog(options: {
+  search?: string;
+  categorySlug?: string;
+  featuredOnly?: boolean;
+  sort?: CourseSort;
+  page?: number;
+  pageSize?: number;
+}): Promise<CourseCatalogResult> {
+  const sort: CourseSort = options.sort ?? "newest";
+  // Fixed page size for the public catalog (not an admin “rows per page” control)
+  const pageSize = 12;
+  const page = Math.max(1, options.page ?? 1);
+  const where = courseListWhere(
+    options.search,
+    options.categorySlug,
+    options.featuredOnly
+  );
+
+  if (sort === "rating") {
+    const all = await prisma.course.findMany({
+      where,
+      include: courseListInclude,
+    });
+    const mapped = all.map(mapCourseCard).sort((a, b) => {
+      if (b.ratingAvg !== a.ratingAvg) return b.ratingAvg - a.ratingAvg;
+      return b.ratingCount - a.ratingCount;
+    });
+    const total = mapped.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const courses = mapped.slice(
+      (safePage - 1) * pageSize,
+      safePage * pageSize
+    );
+    return { courses, total, page: safePage, pageSize, totalPages };
+  }
+
+  const orderBy =
+    sort === "oldest"
+      ? ({ createdAt: "asc" } as const)
+      : sort === "price-asc"
+        ? ({ priceInPaise: "asc" } as const)
+        : sort === "price-desc"
+          ? ({ priceInPaise: "desc" } as const)
+          : sort === "title"
+            ? ({ title: "asc" } as const)
+            : ({ createdAt: "desc" } as const);
+
+  const total = await prisma.course.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(page, totalPages);
+
+  const rows = await prisma.course.findMany({
+    where,
+    include: courseListInclude,
+    orderBy,
+    skip: (safePage - 1) * pageSize,
+    take: pageSize,
+  });
+
+  return {
+    courses: rows.map(mapCourseCard),
+    total,
+    page: safePage,
+    pageSize,
+    totalPages,
+  };
 }
 
 async function viewerCanBypassPaywall(
@@ -291,7 +463,8 @@ export async function getCourseBySlug(
 }
 
 export async function getFeaturedCourses() {
-  const featured = await getCoursesWithMeta();
-  const onlyFeatured = featured.filter((c) => c.featured);
-  return (onlyFeatured.length > 0 ? onlyFeatured : featured).slice(0, 6);
+  const featured = await getCoursesWithMeta(undefined, undefined, true);
+  if (featured.length > 0) return featured.slice(0, 6);
+  // Fallback when nothing is marked featured yet
+  return (await getCoursesWithMeta()).slice(0, 6);
 }

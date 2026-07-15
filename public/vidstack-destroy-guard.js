@@ -1,18 +1,29 @@
 /**
  * Runs before Next.js / React hydrate. Swallows Vidstack's known
- * "provider destroyed" unhandledrejection so the dev overlay never opens.
+ * teardown noise ("provider destroyed", $state TypeErrors) so the
+ * dev overlay never opens.
  */
 (function () {
-  function isDestroyed(reason) {
-    if (reason === "provider destroyed") return true;
-    if (typeof reason === "string" && reason.indexOf("provider destroyed") !== -1) {
-      return true;
-    }
+  function messageFrom(reason) {
+    if (typeof reason === "string") return reason;
     if (
       reason &&
       typeof reason === "object" &&
-      typeof reason.message === "string" &&
-      reason.message.indexOf("provider destroyed") !== -1
+      typeof reason.message === "string"
+    ) {
+      return reason.message;
+    }
+    return null;
+  }
+
+  function isBenign(reason) {
+    if (reason === "provider destroyed") return true;
+    var msg = messageFrom(reason);
+    if (!msg) return false;
+    if (msg.indexOf("provider destroyed") !== -1) return true;
+    if (
+      msg.indexOf("$state") !== -1 &&
+      msg.indexOf("is not a function") !== -1
     ) {
       return true;
     }
@@ -20,21 +31,39 @@
   }
 
   function onReject(event) {
-    if (!isDestroyed(event.reason)) return;
+    if (!isBenign(event.reason)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }
+
+  function onError(event) {
+    if (!isBenign(event.error != null ? event.error : event.message)) return;
     event.preventDefault();
     event.stopImmediatePropagation();
   }
 
   window.addEventListener("unhandledrejection", onReject, true);
+  window.addEventListener("error", onError, true);
 
-  var previous = window.onunhandledrejection;
+  var previousReject = window.onunhandledrejection;
   window.onunhandledrejection = function (event) {
-    if (isDestroyed(event.reason)) {
+    if (isBenign(event.reason)) {
       event.preventDefault();
       return true;
     }
-    if (typeof previous === "function") {
-      return previous.call(this, event);
+    if (typeof previousReject === "function") {
+      return previousReject.call(this, event);
     }
+  };
+
+  var previousError = window.onerror;
+  window.onerror = function (message, source, lineno, colno, error) {
+    if (isBenign(error != null ? error : message)) {
+      return true;
+    }
+    if (typeof previousError === "function") {
+      return previousError.call(this, message, source, lineno, colno, error);
+    }
+    return false;
   };
 })();

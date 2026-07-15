@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { auth, signOut } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, Search } from "lucide-react";
+import { GraduationCap } from "lucide-react";
 import { SearchBar } from "@/components/layout/search-bar";
 
 export async function Header() {

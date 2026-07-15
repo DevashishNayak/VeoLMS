@@ -24,6 +24,12 @@ export default async function InstructorPage({ params }: PageProps) {
         orderBy: { createdAt: "desc" },
         include: {
           instructor: { select: { name: true } },
+          category: {
+            select: {
+              name: true,
+              parent: { select: { name: true } },
+            },
+          },
           sections: { include: { lessons: { select: { duration: true } } } },
           reviews: { select: { rating: true } },
         },
@@ -40,6 +46,7 @@ export default async function InstructorPage({ params }: PageProps) {
         : 0;
     return {
       ...c,
+      sectionCount: c.sections.length,
       lessonCount: c.sections.reduce((acc, s) => acc + s.lessons.length, 0),
       totalDuration: c.sections.reduce(
         (acc, s) => acc + s.lessons.reduce((a, l) => a + l.duration, 0),
@@ -91,7 +98,11 @@ export default async function InstructorPage({ params }: PageProps) {
       ) : (
         <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {courses.map((course) => (
-            <CourseCard key={course.id} course={course} />
+            <CourseCard
+              key={course.id}
+              course={course}
+              showFeaturedBadge
+            />
           ))}
         </div>
       )}

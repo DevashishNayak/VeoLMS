@@ -26,16 +26,57 @@ import {
 } from "@/lib/player-prefs-storage";
 import { resumeWatchSeconds } from "@/lib/video-resume";
 
+/** True when Vidstack `$state` accessors are no longer callable. */
+function isPlayerStateTornDown(player: MediaPlayerInstance) {
+  try {
+    const stateBag = (player as unknown as { $state?: unknown }).$state;
+    if (stateBag == null) return true;
+    // Touch a common accessor — destroyed proxies throw TypeError.
+    void player.paused;
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+function safeSetMuted(player: MediaPlayerInstance, muted: boolean) {
+  try {
+    if (isPlayerStateTornDown(player)) return;
+    player.muted = muted;
+  } catch {
+    /* torn-down $state */
+  }
+}
+
+function safePause(player: MediaPlayerInstance) {
+  try {
+    if (isPlayerStateTornDown(player)) return;
+    const result = player.pause();
+    if (result != null && typeof (result as Promise<void>).catch === "function") {
+      void (result as Promise<void>).catch(() => {
+        /* ignore */
+      });
+    }
+  } catch {
+    /* torn-down $state */
+  }
+}
+
+function safePlay(player: MediaPlayerInstance): Promise<void> {
+  try {
+    if (isPlayerStateTornDown(player)) return Promise.resolve();
+    return player.play().catch(() => {
+      /* autoplay blocked / provider swap / teardown */
+    });
+  } catch {
+    return Promise.resolve();
+  }
+}
+
 function silencePlayer(player: MediaPlayerInstance) {
   withSuppressedPlayerPrefs(() => {
-    try {
-      player.muted = true;
-    } catch {
-      /* ignore */
-    }
-    void player.pause().catch(() => {
-      /* ignore */
-    });
+    safeSetMuted(player, true);
+    safePause(player);
   });
 }
 
@@ -232,10 +273,13 @@ function VidstackPlayer({
   }, []);
 
   useEffect(() => {
-    if (src === stableSrc) return;
+    // Never soft-swap to an empty src — that hard-tears the provider.
+    if (!src || src === stableSrc) return;
     const player = playerRef.current;
     if (player) silencePlayer(player);
-    const t = window.setTimeout(() => setStableSrc(src), 180);
+    const t = window.setTimeout(() => {
+      if (src) setStableSrc(src);
+    }, 180);
     return () => window.clearTimeout(t);
   }, [src, stableSrc]);
 
@@ -256,22 +300,14 @@ function VidstackPlayer({
     }
 
     withSuppressedPlayerPrefs(() => {
-      try {
-        player.muted = false;
-      } catch {
-        /* ignore */
-      }
+      safeSetMuted(player, false);
     });
 
-    if (!autoPlay) return;
-    void player
-      .play()
-      .then(() => {
-        if (!activeRef.current) silencePlayer(player);
-      })
-      .catch(() => {
-        /* autoplay blocked / provider swap */
-      });
+    // Inactive/pending must never call play() — soft-hold only silences.
+    if (!autoPlay || !activeRef.current) return;
+    void safePlay(player).then(() => {
+      if (!activeRef.current) silencePlayer(player);
+    });
   }, [active, autoPlay, stableSrc]);
 
   return (
@@ -288,10 +324,10 @@ function VidstackPlayer({
         ref={playerRef}
         className="h-full w-full font-sans outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
         title={title}
-        src={stableSrc}
+        src={stableSrc || src}
         aspectRatio="16/9"
         playsInline
-        autoPlay={autoPlay && active}
+        autoPlay={Boolean(autoPlay && active && (stableSrc || src))}
         load="eager"
         crossOrigin=""
         storage={veoPlayerPrefsStorage}
@@ -352,7 +388,7 @@ export function LmsMediaPlayer(props: LmsMediaPlayerProps) {
 
   const source = resolveLmsMediaSource({ videoProvider, videoSrc });
 
-  if (!source) {
+  if (!source?.src) {
     return (
       <div
         className={cn(
