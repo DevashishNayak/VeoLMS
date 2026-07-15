@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist_Mono, Outfit } from "next/font/google";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
@@ -35,12 +36,13 @@ export default async function RootLayout({
       lang="en"
       className={`${outfit.variable} ${geistMono.variable} h-full`}
     >
-      <head>
-        <script
-          dangerouslySetInnerHTML={{ __html: VIDSTACK_DESTROY_GUARD_BOOT }}
-        />
-      </head>
       <body className="flex min-h-full flex-col font-sans">
+        <Script
+          id="veolms-vidstack-destroy-guard"
+          strategy="beforeInteractive"
+        >
+          {VIDSTACK_DESTROY_GUARD_BOOT}
+        </Script>
         <SessionProvider session={session}>
           <Header />
           <main className="flex-1">{children}</main>
