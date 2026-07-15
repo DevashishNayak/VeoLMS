@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { isEnrolled } from "@/lib/access";
 import { sanitizeLessonPayload } from "@/lib/lesson-payload";
+import { withSignedLessonMedia } from "@/lib/signed-media";
 
 export type PublicLesson = {
   id: string;
@@ -405,21 +406,30 @@ export async function getCourseBySlug(
     lessons: section.lessons.map((lesson) => {
       const allowed = lesson.isPreview || enrolled || staffBypass;
       const safe = sanitizeLessonPayload(lesson, allowed);
+      const media = allowed
+        ? withSignedLessonMedia({
+            id: safe.id,
+            videoProvider: safe.videoProvider,
+            videoSrc: safe.videoSrc,
+            pdfUrl: safe.pdfUrl,
+            resources: safe.resources,
+          })
+        : safe;
       return {
         id: safe.id,
         title: safe.title,
         description: safe.description,
         type: safe.type,
-        videoProvider: safe.videoProvider as PublicLesson["videoProvider"],
-        videoSrc: safe.videoSrc,
+        videoProvider: media.videoProvider as PublicLesson["videoProvider"],
+        videoSrc: media.videoSrc ?? null,
         content: safe.content,
-        pdfUrl: safe.pdfUrl,
+        pdfUrl: media.pdfUrl ?? null,
         duration: safe.duration,
         order: safe.order,
         isPreview: safe.isPreview,
         sectionId: safe.sectionId,
-        resources: (safe.resources ?? []).map((r) => ({
-          id: r.id,
+        resources: (media.resources ?? []).map((r) => ({
+          id: r.id!,
           title: r.title,
           url: r.url,
           mimeType: r.mimeType ?? null,

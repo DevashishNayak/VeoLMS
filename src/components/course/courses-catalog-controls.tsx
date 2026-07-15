@@ -97,13 +97,13 @@ export function CoursesCatalogToolbar({
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
         <label className="sr-only" htmlFor="catalog-category">
           Category
         </label>
         <Select
           id="catalog-category"
-          className="h-9 w-[11rem] border-border/80 bg-background sm:w-[13rem]"
+          className="h-10 w-full border-border/80 bg-background sm:h-9 sm:w-[13rem]"
           value={category}
           onChange={(e) =>
             pushUpdates({ category: e.target.value || null })
@@ -122,7 +122,7 @@ export function CoursesCatalogToolbar({
         </label>
         <Select
           id="catalog-sort"
-          className="h-9 w-[11rem] border-border/80 bg-background"
+          className="h-10 w-full border-border/80 bg-background sm:h-9 sm:w-[13rem]"
           value={sort}
           onChange={(e) => pushUpdates({ sort: e.target.value })}
         >
@@ -136,7 +136,7 @@ export function CoursesCatalogToolbar({
 
         <Link
           href={featuredLink}
-          className="inline-flex items-center gap-1 text-sm font-semibold text-foreground underline-offset-4 transition hover:underline"
+          className="inline-flex w-full items-center justify-center gap-1 py-2 text-sm font-semibold text-foreground underline-offset-4 transition hover:underline sm:w-auto sm:justify-start sm:py-0"
         >
           {featuredOnly ? "View all courses" : "View featured courses"}
           <ArrowRight className="h-4 w-4" />

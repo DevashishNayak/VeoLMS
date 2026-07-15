@@ -45,6 +45,8 @@ Vercel for Next.js hosting (serverless, zero ops). Neon for managed Postgres. En
 ### Storage Strategy
 Primary lesson video via **YouTube / Vimeo embeds** (provider CDN + egress, not billed to us). Optional **Vercel Blob** for self-hosted FILE videos, PDFs, and profile avatars. Course thumbnails can use public URLs. No always-on media transcoding servers.
 
+**Secure delivery:** authorized FILE/PDF/resource links are issued as short-lived HMAC URLs (`/api/media`) that re-check enrollment before redirecting. **HLS:** Vidstack plays `.m3u8` (demo course + quality ladder). **Tests:** Vitest coverage for OTP, access policy, Razorpay signatures, and signed media.
+
 ### Security Considerations
 - Server-side RBAC on all mutations
 - Email OTP at signup; bcrypt password hashing; JWT sessions

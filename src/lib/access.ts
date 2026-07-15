@@ -8,6 +8,25 @@ export async function isEnrolled(userId: string, courseId: string) {
 }
 
 /**
+ * Pure access policy (unit-tested). Preview → anyone; paid → enrolled or staff.
+ */
+export function resolveLessonAccess(opts: {
+  isPreview: boolean;
+  userId?: string;
+  role?: "ADMIN" | "INSTRUCTOR" | "STUDENT" | null;
+  instructorId: string;
+  enrolled: boolean;
+}): boolean {
+  if (opts.isPreview) return true;
+  if (!opts.userId || !opts.role) return false;
+  if (opts.role === "ADMIN") return true;
+  if (opts.role === "INSTRUCTOR" && opts.instructorId === opts.userId) {
+    return true;
+  }
+  return opts.enrolled;
+}
+
+/**
  * Preview lessons (`isPreview`) are free for anyone (even anonymous).
  * Paid lessons require an enrollment for that course.
  * Admins / course instructors may always access for QA.
@@ -37,15 +56,22 @@ export async function canAccessLesson(
     select: { role: true },
   });
   if (!user) return false;
-  if (user.role === "ADMIN") return true;
-  if (
-    user.role === "INSTRUCTOR" &&
-    lesson.section.course.instructorId === userId
-  ) {
-    return true;
-  }
 
-  return isEnrolled(userId, lesson.section.courseId);
+  // Staff bypass without an enrollment round-trip when possible.
+  if (user.role === "ADMIN") return true;
+  const isCourseInstructor =
+    String(user.role) === "INSTRUCTOR" &&
+    lesson.section.course.instructorId === userId;
+  if (isCourseInstructor) return true;
+
+  const enrolled = await isEnrolled(userId, lesson.section.courseId);
+  return resolveLessonAccess({
+    isPreview: false,
+    userId,
+    role: user.role as "ADMIN" | "INSTRUCTOR" | "STUDENT",
+    instructorId: lesson.section.course.instructorId,
+    enrolled,
+  });
 }
 
 export async function getCourseProgress(userId: string, courseId: string) {

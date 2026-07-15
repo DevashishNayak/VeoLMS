@@ -76,6 +76,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     [isAdmin]
   );
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     courses: true,
     users: true,
@@ -87,7 +88,21 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         setOpenGroups((s) => ({ ...s, [group.id]: true }));
       }
     }
+    setMobileNavOpen(false);
   }, [pathname, navGroups]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileNavOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [mobileNavOpen]);
 
   function groupActive(group: NavGroup) {
     return group.items.some((item) => isItemActive(pathname, item.href));
@@ -95,19 +110,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   const flatItems = navGroups.flatMap((g) => g.items);
 
-  return (
-    <div className="fixed inset-0 z-[60] flex bg-background">
-      <aside
-        className={cn(
-          "flex shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200",
-          collapsed ? "w-[72px]" : "w-64"
-        )}
-      >
+  function renderAside(compact: boolean) {
+    return (
+      <>
         <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
             <GraduationCap className="h-5 w-5" />
           </div>
-          {!collapsed && (
+          {!compact && (
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold tracking-tight text-foreground">
                 {isAdmin ? "VeoLMS Admin" : "Instructor"}
@@ -120,7 +130,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-3">
-          {collapsed ? (
+          {compact ? (
             <ul className="space-y-1">
               {flatItems.map((item) => {
                 const Icon = item.icon;
@@ -209,12 +219,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             size="sm"
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             className={cn(
-              "w-full text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              collapsed ? "justify-center px-0" : "justify-start"
+              "hidden w-full text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:inline-flex",
+              compact ? "justify-center px-0" : "justify-start"
             )}
             onClick={() => setCollapsed((v) => !v)}
           >
-            {collapsed ? (
+            {compact ? (
               <PanelLeft className="h-4 w-4" />
             ) : (
               <>
@@ -230,22 +240,22 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             title="View site (new tab)"
             className={cn(
               "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              collapsed && "justify-center px-0"
+              compact && "justify-center px-0"
             )}
           >
             <ExternalLink className="h-4 w-4 shrink-0" />
-            {!collapsed && "View site"}
+            {!compact && "View site"}
           </a>
           <Link
             href="/dashboard"
             title="Student dashboard"
             className={cn(
               "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              collapsed && "justify-center px-0"
+              compact && "justify-center px-0"
             )}
           >
             <LayoutDashboard className="h-4 w-4 shrink-0" />
-            {!collapsed && "Student dashboard"}
+            {!compact && "Student dashboard"}
           </Link>
           <button
             type="button"
@@ -253,18 +263,59 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             onClick={() => signOut({ callbackUrl: "/" })}
             className={cn(
               "flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              collapsed && "justify-center px-0"
+              compact && "justify-center px-0"
             )}
           >
             <LogOut className="h-4 w-4 shrink-0" />
-            {!collapsed && "Log out"}
+            {!compact && "Log out"}
           </button>
         </div>
+      </>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex bg-background">
+      {/* Desktop sidebar */}
+      <aside
+        className={cn(
+          "hidden shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 md:flex",
+          collapsed ? "w-[72px]" : "w-64"
+        )}
+      >
+        {renderAside(collapsed)}
       </aside>
 
+      {/* Mobile drawer */}
+      {mobileNavOpen ? (
+        <div className="fixed inset-0 z-[70] md:hidden">
+          <button
+            type="button"
+            aria-label="Close admin menu"
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setMobileNavOpen(false)}
+          />
+          <aside className="absolute inset-y-0 left-0 flex w-[min(100%,18rem)] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-xl">
+            {renderAside(false)}
+          </aside>
+        </div>
+      ) : null}
+
       <div className="flex min-w-0 flex-1 flex-col bg-background">
-        <header className="flex h-14 shrink-0 items-center border-b border-border bg-card px-4 sm:px-6">
-          <AdminBreadcrumbs />
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-card px-3 sm:px-6">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-10 w-10 shrink-0 px-0 md:hidden"
+            aria-label="Open admin menu"
+            onClick={() => setMobileNavOpen(true)}
+          >
+            <PanelLeft className="h-4 w-4" />
+          </Button>
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <AdminBreadcrumbs />
+          </div>
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto p-4 pb-8 sm:p-6 sm:pb-10">
           {children}

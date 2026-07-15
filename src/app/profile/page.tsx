@@ -23,19 +23,16 @@ export default async function ProfilePage() {
   if (!user) redirect("/login");
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="text-3xl font-bold tracking-tight text-foreground">
-        Your profile
-      </h1>
-      <p className="mt-1 text-muted-foreground">
-        Update your name, photo, bio, and password.
-      </p>
-      <div className="mt-8">
-        <ProfileForm
-          initialUser={user}
-          uploadsEnabled={blobConfigured()}
-        />
-      </div>
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <header className="mb-5">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          Profile
+        </h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          How you appear in the app, plus account security.
+        </p>
+      </header>
+      <ProfileForm initialUser={user} uploadsEnabled={blobConfigured()} />
     </div>
   );
 }

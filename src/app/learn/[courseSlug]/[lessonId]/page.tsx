@@ -6,6 +6,7 @@ import { canAccessLesson, getCourseProgress } from "@/lib/access";
 import { getAccessibleLessonIds } from "@/lib/learn-access";
 import { parseSidebarOpen, LEARN_SIDEBAR_COOKIE } from "@/lib/learn-sidebar-pref";
 import { LearnWorkspace } from "@/components/learn/learn-workspace";
+import { withSignedLessonMedia } from "@/lib/signed-media";
 
 interface PageProps {
   params: Promise<{ courseSlug: string; lessonId: string }>;
@@ -98,6 +99,8 @@ export default async function LearnPage({ params }: PageProps) {
 
   if (!lesson) notFound();
 
+  const media = withSignedLessonMedia(lesson);
+
   const [progress, completedRows, courseProgress, review] = progressBundle;
   const completedIds = Array.isArray(completedRows)
     ? completedRows.map((p) => p.lessonId)
@@ -137,13 +140,13 @@ export default async function LearnPage({ params }: PageProps) {
       title={lesson.title}
       description={lesson.description}
       duration={lesson.duration}
-      videoProvider={lesson.videoProvider}
-      videoSrc={lesson.videoSrc}
+      videoProvider={media.videoProvider}
+      videoSrc={media.videoSrc}
       content={lesson.content}
-      pdfUrl={lesson.pdfUrl}
+      pdfUrl={media.pdfUrl}
       initialProgress={progress?.watchedSeconds ?? 0}
       initiallyCompleted={progress?.completed ?? false}
-      resources={lesson.resources.map((r) => ({
+      resources={(media.resources ?? []).map((r) => ({
         id: r.id,
         title: r.title,
         url: r.url,

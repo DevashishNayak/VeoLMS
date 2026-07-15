@@ -1,82 +1,53 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { auth, signOut } from "@/lib/auth";
-import { Button } from "@/components/ui/button";
 import { GraduationCap } from "lucide-react";
 import { SearchBar } from "@/components/layout/search-bar";
+import { SiteHeaderNav } from "@/components/layout/site-header-nav";
+import { MobileSearchStrip } from "@/components/layout/mobile-search-strip";
 
 export async function Header() {
   const session = await auth();
 
+  async function logoutAction() {
+    "use server";
+    await signOut({ redirectTo: "/" });
+  }
+
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex cursor-pointer items-center gap-2 font-bold text-foreground">
+    <header className="relative sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur">
+      <div className="mx-auto grid h-16 max-w-7xl grid-cols-[1fr_auto] items-center gap-4 px-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] md:gap-8 lg:px-8">
+        <Link
+          href="/"
+          className="flex shrink-0 items-center gap-2 justify-self-start font-bold text-foreground"
+        >
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
             <GraduationCap className="h-5 w-5" />
           </span>
           <span className="hidden sm:inline">VeoLMS</span>
         </Link>
 
-        <div className="hidden flex-1 md:block">
-          <Suspense fallback={<div className="h-10 max-w-xl rounded-lg bg-muted" />}>
-            <SearchBar />
-          </Suspense>
+        <div className="hidden min-w-0 md:flex md:justify-center">
+          <div className="w-full max-w-md">
+            <Suspense fallback={<div className="h-10 rounded-lg bg-muted" />}>
+              <SearchBar />
+            </Suspense>
+          </div>
         </div>
 
-        <nav className="ml-auto flex items-center gap-2">
-          <Link
-            href="/courses"
-            className="hidden rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 sm:inline"
-          >
-            Courses
-          </Link>
-
-          {session?.user ? (
-            <>
-              {(session.user.role === "ADMIN" ||
-                session.user.role === "INSTRUCTOR") && (
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/admin">
-                    {session.user.role === "ADMIN" ? "Admin" : "Teaching"}
-                  </Link>
-                </Button>
-              )}
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/dashboard">Dashboard</Link>
-              </Button>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/profile">Profile</Link>
-              </Button>
-              <form
-                action={async () => {
-                  "use server";
-                  await signOut({ redirectTo: "/" });
-                }}
-              >
-                <Button variant="outline" size="sm" type="submit">
-                  Logout
-                </Button>
-              </form>
-            </>
-          ) : (
-            <>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/login">Login</Link>
-              </Button>
-              <Button size="sm" asChild>
-                <Link href="/register">Sign Up</Link>
-              </Button>
-            </>
-          )}
-        </nav>
+        <div className="justify-self-end">
+          <SiteHeaderNav
+            isLoggedIn={Boolean(session?.user)}
+            role={session?.user?.role}
+            userName={session?.user?.name}
+            userEmail={session?.user?.email}
+            userImage={session?.user?.image}
+            logoutAction={logoutAction}
+          />
+        </div>
       </div>
 
-      <div className="border-t border-slate-100 px-4 py-2 md:hidden">
-        <Suspense fallback={<div className="h-10 rounded-lg bg-slate-100" />}>
-          <SearchBar />
-        </Suspense>
-      </div>
+      <MobileSearchStrip />
     </header>
   );
 }

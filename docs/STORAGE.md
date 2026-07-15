@@ -67,3 +67,11 @@ Vidstack plays **HLS** when `videoProvider = FILE` and `videoSrc` is a master `.
 `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`
 
 Open the lecture → **Settings → Quality**. Packaging MP4 → HLS still needs a transcoder (Mux / Cloudflare Stream / ffmpeg) — VeoLMS only stores the playlist URL today.
+
+## Secure / temporary media URLs
+
+Authorized FILE / PDF / resource URLs are not returned as long-lived CDN links to the browser. The learn page and content API wrap them as short-lived **HMAC signed** paths:
+
+`/api/media?t=…&sig=…` (default TTL: 1 hour)
+
+`/api/media` re-checks enrollment (or preview / staff), then **302** redirects to the real object URL. YouTube / Vimeo ids are unchanged (provider-handled). Signing uses `AUTH_SECRET`.

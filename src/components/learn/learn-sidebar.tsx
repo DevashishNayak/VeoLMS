@@ -146,10 +146,10 @@ export function LearnSidebar({
                             isDone ? "Mark lesson incomplete" : "Mark lesson complete"
                           }
                           className={cn(
-                            "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors",
+                            "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors",
                             isDone
-                              ? "border-emerald-600 bg-emerald-600 text-white"
-                              : "border-muted-foreground/40 hover:border-emerald-600"
+                              ? "text-emerald-700"
+                              : "text-muted-foreground hover:text-emerald-700"
                           )}
                           onClick={(e) => {
                             e.preventDefault();
@@ -157,6 +157,14 @@ export function LearnSidebar({
                             onToggleComplete(l.id, !isDone);
                           }}
                         >
+                          <span
+                            className={cn(
+                              "flex h-4 w-4 items-center justify-center rounded-sm border",
+                              isDone
+                                ? "border-emerald-600 bg-emerald-600 text-white"
+                                : "border-muted-foreground/40"
+                            )}
+                          >
                           {isDone ? (
                             <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none">
                               <path
@@ -168,6 +176,7 @@ export function LearnSidebar({
                               />
                             </svg>
                           ) : null}
+                          </span>
                         </button>
                       ) : can ? (
                         <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { canAccessLesson } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { lessonContentSelect } from "@/lib/lesson-payload";
+import { withSignedLessonMedia } from "@/lib/signed-media";
 
 /**
  * Authorized lesson media. Preview → anyone; paid → enrolled (or staff).
@@ -61,21 +62,29 @@ export async function GET(
     );
   }
 
+  const media = withSignedLessonMedia({
+    id: lesson.id,
+    videoProvider: lesson.videoProvider,
+    videoSrc: lesson.videoSrc,
+    pdfUrl: lesson.pdfUrl,
+    resources: lesson.resources,
+  });
+
   return NextResponse.json({
     lesson: {
       id: lesson.id,
       title: lesson.title,
       description: lesson.description,
       type: lesson.type,
-      videoProvider: lesson.videoProvider,
-      videoSrc: lesson.videoSrc,
+      videoProvider: media.videoProvider,
+      videoSrc: media.videoSrc,
       content: lesson.content,
-      pdfUrl: lesson.pdfUrl,
+      pdfUrl: media.pdfUrl,
       duration: lesson.duration,
       order: lesson.order,
       isPreview: lesson.isPreview,
       sectionId: lesson.sectionId,
-      resources: lesson.resources,
+      resources: media.resources,
       sectionTitle: lesson.section.title,
       courseSlug: lesson.section.course.slug,
       courseTitle: lesson.section.course.title,

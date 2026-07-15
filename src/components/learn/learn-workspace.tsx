@@ -283,16 +283,22 @@ export function LearnWorkspace({
   const showResourcesTab = resources.length > 0;
 
   // Prefer localStorage when cookie is missing so collapsed stays collapsed after refresh.
+  // On phones/tablets, start with the curriculum closed (opens as a drawer).
   useEffect(() => {
     try {
-      const fromLs = localStorage.getItem(LEARN_SIDEBAR_KEY);
-      const hasCookie = document.cookie.includes(`${LEARN_SIDEBAR_COOKIE}=`);
-      if (!hasCookie && (fromLs === "0" || fromLs === "1")) {
-        const open = parseSidebarOpen(fromLs);
-        setSidebarOpen(open);
-        writeSidebarOpenPref(open);
+      const mobile = window.matchMedia("(max-width: 1023px)").matches;
+      if (mobile) {
+        setSidebarOpen(false);
       } else {
-        writeSidebarOpenPref(sidebarOpen);
+        const fromLs = localStorage.getItem(LEARN_SIDEBAR_KEY);
+        const hasCookie = document.cookie.includes(`${LEARN_SIDEBAR_COOKIE}=`);
+        if (!hasCookie && (fromLs === "0" || fromLs === "1")) {
+          const open = parseSidebarOpen(fromLs);
+          setSidebarOpen(open);
+          writeSidebarOpenPref(open);
+        } else {
+          writeSidebarOpenPref(sidebarOpen);
+        }
       }
     } catch {
       /* ignore */
@@ -516,10 +522,10 @@ export function LearnWorkspace({
         ref={learnToolbarRef}
         className="sticky top-16 z-40 border-b border-border bg-card/95 backdrop-blur"
       >
-        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
+        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-2 px-4 py-2.5 sm:gap-3 sm:px-6">
           <Link
             href={`/courses/${courseSlug}`}
-            className="text-sm text-muted-foreground hover:text-foreground"
+            className="min-w-0 max-w-[45%] truncate text-sm text-muted-foreground hover:text-foreground sm:max-w-xs"
           >
             ← {courseTitle}
           </Link>
@@ -527,15 +533,15 @@ export function LearnWorkspace({
           <span className="min-w-0 flex-1 truncate text-sm font-medium">
             {sectionTitle}
           </span>
-          <span className="text-xs tabular-nums text-muted-foreground">
+          <span className="hidden text-xs tabular-nums text-muted-foreground sm:inline">
             Lecture {lessonIndex + 1} of {lessonTotal}
           </span>
           <button
             type="button"
             onClick={() => void shareLesson()}
-            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
           >
-            <Share2 className="h-3.5 w-3.5" />
+            <Share2 className="h-4 w-4" />
             {shareToast ? "Copied" : "Share"}
           </button>
           <button
@@ -547,13 +553,13 @@ export function LearnWorkspace({
                 return next;
               });
             }}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-muted"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-muted"
             aria-pressed={sidebarOpen}
           >
             {sidebarOpen ? (
-              <PanelRightClose className="h-3.5 w-3.5" />
+              <PanelRightClose className="h-4 w-4" />
             ) : (
-              <PanelRightOpen className="h-3.5 w-3.5" />
+              <PanelRightOpen className="h-4 w-4" />
             )}
             Content
           </button>
@@ -931,28 +937,73 @@ export function LearnWorkspace({
         </div>
 
         {sidebarOpen ? (
-          <div className="min-h-0">
-            <div
-              className="hidden lg:block lg:h-[calc(100dvh-4rem-2.75rem-2rem)]"
-              aria-hidden
-            />
-            <aside
-              ref={pinnedSidebarRef}
-              className="min-h-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm"
-            >
-              <LearnSidebar
-                courseSlug={courseSlug}
-                currentLessonId={lessonId}
-                pendingLessonId={isPending ? routeLessonId : null}
-                accessibleIds={accessibleIds}
-                completedIds={completedIds}
-                progressPercent={progressPercent}
-                canToggleComplete={canMutateProgress}
-                onToggleComplete={(id, next) => void markComplete(id, next, 0)}
-                sections={sections}
+          <>
+            {/* Desktop: pinned course list */}
+            <div className="hidden min-h-0 lg:block">
+              <div
+                className="lg:h-[calc(100dvh-4rem-2.75rem-2rem)]"
+                aria-hidden
               />
-            </aside>
-          </div>
+              <aside
+                ref={pinnedSidebarRef}
+                className="min-h-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+              >
+                <LearnSidebar
+                  courseSlug={courseSlug}
+                  currentLessonId={lessonId}
+                  pendingLessonId={isPending ? routeLessonId : null}
+                  accessibleIds={accessibleIds}
+                  completedIds={completedIds}
+                  progressPercent={progressPercent}
+                  canToggleComplete={canMutateProgress}
+                  onToggleComplete={(id, next) => void markComplete(id, next, 0)}
+                  sections={sections}
+                />
+              </aside>
+            </div>
+
+            {/* Mobile / tablet: curriculum drawer */}
+            <div className="fixed inset-0 z-50 lg:hidden">
+              <button
+                type="button"
+                aria-label="Close course content"
+                className="absolute inset-0 bg-black/40"
+                onClick={() => {
+                  setSidebarOpen(false);
+                  writeSidebarOpenPref(false);
+                }}
+              />
+              <aside className="absolute inset-y-0 right-0 flex w-[min(100%,22rem)] flex-col overflow-hidden border-l border-border bg-card shadow-xl">
+                <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
+                  <p className="text-sm font-semibold">Course content</p>
+                  <button
+                    type="button"
+                    className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md hover:bg-muted"
+                    aria-label="Close course content"
+                    onClick={() => {
+                      setSidebarOpen(false);
+                      writeSidebarOpenPref(false);
+                    }}
+                  >
+                    <PanelRightClose className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <LearnSidebar
+                    courseSlug={courseSlug}
+                    currentLessonId={lessonId}
+                    pendingLessonId={isPending ? routeLessonId : null}
+                    accessibleIds={accessibleIds}
+                    completedIds={completedIds}
+                    progressPercent={progressPercent}
+                    canToggleComplete={canMutateProgress}
+                    onToggleComplete={(id, next) => void markComplete(id, next, 0)}
+                    sections={sections}
+                  />
+                </div>
+              </aside>
+            </div>
+          </>
         ) : null}
       </div>
     </div>
