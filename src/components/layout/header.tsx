@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { auth, signOut } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { GraduationCap } from "lucide-react";
 import { SearchBar } from "@/components/layout/search-bar";
 import { SiteHeaderNav } from "@/components/layout/site-header-nav";
@@ -8,11 +8,6 @@ import { MobileSearchStrip } from "@/components/layout/mobile-search-strip";
 
 export async function Header() {
   const session = await auth();
-
-  async function logoutAction() {
-    "use server";
-    await signOut({ redirectTo: "/" });
-  }
 
   return (
     <header className="relative sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur">
@@ -42,7 +37,6 @@ export async function Header() {
             userName={session?.user?.name}
             userEmail={session?.user?.email}
             userImage={session?.user?.image}
-            logoutAction={logoutAction}
           />
         </div>
       </div>

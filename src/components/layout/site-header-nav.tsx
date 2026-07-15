@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { signOut } from "next-auth/react";
 import {
   ChevronDown,
   LayoutDashboard,
@@ -28,7 +29,6 @@ type Props = {
   userName?: string | null;
   userEmail?: string | null;
   userImage?: string | null;
-  logoutAction: () => Promise<void>;
 };
 
 function initials(name?: string | null, email?: string | null) {
@@ -80,10 +80,21 @@ export function SiteHeaderNav({
   userName,
   userEmail,
   userImage,
-  logoutAction,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const staff = role === "ADMIN" || role === "INSTRUCTOR";
+
+  async function handleLogout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setOpen(false);
+    try {
+      await signOut({ callbackUrl: "/" });
+    } catch {
+      setLoggingOut(false);
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -163,17 +174,19 @@ export function SiteHeaderNav({
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <form action={logoutAction}>
-                <DropdownMenuItem asChild>
-                  <button
-                    type="submit"
-                    className="w-full cursor-pointer gap-2 text-left text-emerald-900"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Logout
-                  </button>
-                </DropdownMenuItem>
-              </form>
+              <DropdownMenuItem
+                disabled={loggingOut}
+                className="gap-2 text-emerald-900 focus:text-emerald-950"
+                onSelect={(e) => {
+                  // Radix closes the menu and can cancel nested form submits —
+                  // sign out explicitly from the client instead.
+                  e.preventDefault();
+                  void handleLogout();
+                }}
+              >
+                <LogOut className="h-4 w-4" />
+                {loggingOut ? "Signing out…" : "Logout"}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
@@ -266,16 +279,16 @@ export function SiteHeaderNav({
                   <UserRound className="h-4 w-4" />
                   Profile
                 </Link>
-                <form action={logoutAction} className="pt-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    type="submit"
-                    className="w-full bg-emerald-100 text-emerald-950 hover:bg-emerald-200/90"
-                  >
-                    Logout
-                  </Button>
-                </form>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  disabled={loggingOut}
+                  className="mt-2 w-full bg-emerald-100 text-emerald-950 hover:bg-emerald-200/90"
+                  onClick={() => void handleLogout()}
+                >
+                  {loggingOut ? "Signing out…" : "Logout"}
+                </Button>
               </>
             ) : (
               <Link href="/login" className={mobileLinkClass} onClick={() => setOpen(false)}>
