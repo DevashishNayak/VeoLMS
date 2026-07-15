@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { verifyRazorpaySignature } from "@/lib/razorpay";
+import { fulfillPaidEnrollment } from "@/lib/payment-fulfillment";
 import { paymentVerifySchema } from "@/lib/validations";
 
 export async function POST(request: Request) {
@@ -32,44 +32,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const payment = await prisma.payment.findFirst({
-      where: {
-        razorpayOrderId: razorpay_order_id,
-        userId: session.user.id,
-        courseId,
-        status: "PENDING",
-      },
+    const result = await fulfillPaidEnrollment({
+      razorpayOrderId: razorpay_order_id,
+      razorpayPaymentId: razorpay_payment_id,
+      razorpaySignature: razorpay_signature,
+      userId: session.user.id,
+      courseId,
     });
-    if (!payment) {
+
+    if (!result.ok) {
       return NextResponse.json(
         { error: "Payment record not found" },
         { status: 404 }
       );
     }
-
-    await prisma.$transaction([
-      prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: "COMPLETED",
-          razorpayPaymentId: razorpay_payment_id,
-          razorpaySignature: razorpay_signature,
-        },
-      }),
-      prisma.enrollment.upsert({
-        where: {
-          userId_courseId: {
-            userId: session.user.id,
-            courseId,
-          },
-        },
-        create: {
-          userId: session.user.id,
-          courseId,
-        },
-        update: {},
-      }),
-    ]);
 
     return NextResponse.json({ success: true });
   } catch (e) {

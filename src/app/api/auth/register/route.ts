@@ -36,12 +36,18 @@ export async function POST(request: Request) {
     }
 
     const email = parsed.data.email.toLowerCase();
+    const genericOk = {
+      ok: true as const,
+      requiresVerification: true,
+      email,
+      message:
+        "If this email can be used, a verification code was sent. Check your inbox.",
+    };
+
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      return NextResponse.json(
-        { error: "Email already registered" },
-        { status: 409 }
-      );
+      // Soft response — do not reveal that the email is already registered
+      return NextResponse.json(genericOk);
     }
 
     // Basic resend throttle: one active challenge per email every 60s
@@ -79,12 +85,7 @@ export async function POST(request: Request) {
       code,
     });
 
-    return NextResponse.json({
-      ok: true,
-      requiresVerification: true,
-      email,
-      message: "Verification code sent. Check your inbox.",
-    });
+    return NextResponse.json(genericOk);
   } catch (e) {
     const message =
       e instanceof Error ? e.message : "Failed to start registration";

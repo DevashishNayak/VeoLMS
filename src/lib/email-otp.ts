@@ -1,4 +1,4 @@
-import { createHash, randomInt } from "crypto";
+import { createHash, randomInt, timingSafeEqual } from "crypto";
 import nodemailer from "nodemailer";
 import { Resend } from "resend";
 
@@ -24,6 +24,19 @@ export function hashOtp(code: string, email: string) {
   return createHash("sha256")
     .update(`${email.toLowerCase()}:${code}`)
     .digest("hex");
+}
+
+/** Constant-time compare of hex OTP hashes (avoids length/timing leaks). */
+export function verifyOtpHash(code: string, email: string, codeHash: string) {
+  const expected = hashOtp(code, email);
+  try {
+    const a = Buffer.from(expected, "hex");
+    const b = Buffer.from(codeHash, "hex");
+    if (a.length === 0 || a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
 }
 
 export function generateOtpCode() {

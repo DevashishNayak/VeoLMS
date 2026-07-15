@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { hashOtp, MAX_ATTEMPTS } from "@/lib/email-otp";
+import { MAX_ATTEMPTS, verifyOtpHash } from "@/lib/email-otp";
 
 const verifySchema = z.object({
   email: z.string().email(),
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const ok = hashOtp(parsed.data.code, email) === challenge.codeHash;
+    const ok = verifyOtpHash(parsed.data.code, email, challenge.codeHash);
     if (!ok) {
       await prisma.emailOtpChallenge.update({
         where: { id: challenge.id },
@@ -67,8 +67,11 @@ export async function POST(request: Request) {
     if (existing) {
       await prisma.emailOtpChallenge.deleteMany({ where: { email } });
       return NextResponse.json(
-        { error: "Email already registered" },
-        { status: 409 }
+        {
+          error:
+            "Unable to create this account. Try signing in, or use a different email.",
+        },
+        { status: 400 }
       );
     }
 

@@ -13,6 +13,17 @@ export function getRazorpayInstance() {
   return new Razorpay({ key_id: keyId, key_secret: keySecret });
 }
 
+function timingSafeHexEqual(expected: string, actual: string): boolean {
+  try {
+    const a = Buffer.from(expected, "utf8");
+    const b = Buffer.from(actual, "utf8");
+    if (a.length === 0 || a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
 export function verifyRazorpaySignature(
   orderId: string,
   paymentId: string,
@@ -27,9 +38,23 @@ export function verifyRazorpaySignature(
     .update(body)
     .digest("hex");
 
-  if (expected.length !== signature.length) return false;
-  return crypto.timingSafeEqual(
-    Buffer.from(expected),
-    Buffer.from(signature)
-  );
+  return timingSafeHexEqual(expected, signature);
+}
+
+/** Razorpay Dashboard webhook HMAC over the raw request body. */
+export function verifyRazorpayWebhookSignature(
+  rawBody: string,
+  signature: string
+): boolean {
+  const secret =
+    process.env.RAZORPAY_WEBHOOK_SECRET?.trim() ||
+    process.env.RAZORPAY_KEY_SECRET?.trim();
+  if (!secret || !signature) return false;
+
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(rawBody)
+    .digest("hex");
+
+  return timingSafeHexEqual(expected, signature);
 }
