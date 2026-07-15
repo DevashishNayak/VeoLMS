@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { VideoProvider } from "@prisma/client";
 import {
   MediaPlayer,
@@ -8,9 +8,7 @@ import {
   Track,
   useMediaPlayer,
   useMediaState,
-  isYouTubeProvider,
   type MediaPlayerInstance,
-  type MediaProviderAdapter,
 } from "@vidstack/react";
 import {
   DefaultVideoLayout,
@@ -26,9 +24,9 @@ import {
   withSuppressedPlayerPrefs,
   repairPlayerMutePref,
 } from "@/lib/player-prefs-storage";
+import { resumeWatchSeconds } from "@/lib/video-resume";
 
 function silencePlayer(player: MediaPlayerInstance) {
-  // Pause + mute without saving mute into prefs (that made every lesson start muted).
   withSuppressedPlayerPrefs(() => {
     try {
       player.muted = true;
@@ -55,18 +53,19 @@ export type LmsMediaPlayerProps = {
   title?: string;
   lessonId?: string;
   initialProgress?: number;
+  /** Stored curriculum length — used to self-heal bad DB values. */
+  storedDuration?: number;
+  /** DOM id for MediaPlayer — keep stable; unique if multiple players on one page. */
+  playerId?: string;
   onProgress?: (seconds: number, completed: boolean) => void;
+  onEnded?: () => void;
   autoPlay?: boolean;
   className?: string;
-  /** Soft pause when false (e.g. trailer modal closing). */
   active?: boolean;
-  /** Hide chrome instantly so controls cannot ghost over the page. */
   showControls?: boolean;
-  /** WebVTT / SRT tracks for FILE (and some HTML5) sources. */
   captionTracks?: CaptionTrack[];
 };
 
-/** YouTube-style shortcuts (focus the player, then press). */
 const LMS_KEY_SHORTCUTS = {
   togglePaused: "k Space",
   toggleMuted: "m",
@@ -82,11 +81,17 @@ const LMS_KEY_SHORTCUTS = {
 };
 
 function ResumeAndSave({
+  lessonId,
   initialProgress,
+  storedDuration = 0,
   onProgress,
+  onEnded,
 }: {
+  lessonId?: string;
   initialProgress: number;
+  storedDuration?: number;
   onProgress?: (seconds: number, completed: boolean) => void;
+  onEnded?: () => void;
 }) {
   const mediaPlayer = useMediaPlayer();
   const currentTime = useMediaState("currentTime");
@@ -96,66 +101,149 @@ function ResumeAndSave({
   const canPlay = useMediaState("canPlay");
   const lastSaved = useRef(0);
   const resumed = useRef(false);
+  const endedFired = useRef(false);
+  const completedSent = useRef(false);
+  const syncedDuration = useRef(false);
+  const lessonRef = useRef(lessonId);
+  const onProgressRef = useRef(onProgress);
+  const onEndedRef = useRef(onEnded);
+  onProgressRef.current = onProgress;
+  onEndedRef.current = onEnded;
+
+  useEffect(() => {
+    if (lessonRef.current === lessonId) return;
+    lessonRef.current = lessonId;
+    lastSaved.current = 0;
+    resumed.current = false;
+    endedFired.current = false;
+    completedSent.current = false;
+    syncedDuration.current = false;
+  }, [lessonId]);
+
+  useEffect(() => {
+    if (!ended && endedFired.current && duration > 0 && currentTime < duration - 1.5) {
+      endedFired.current = false;
+    }
+  }, [ended, currentTime, duration]);
 
   useEffect(() => {
     if (!canPlay || resumed.current || initialProgress <= 0 || !mediaPlayer) {
       return;
     }
+    const dur = Number(duration) || 0;
+    if (dur <= 0) return;
+    const resume = resumeWatchSeconds(initialProgress, dur);
     resumed.current = true;
-    mediaPlayer.currentTime = initialProgress;
-  }, [canPlay, initialProgress, mediaPlayer]);
+    if (resume <= 0) return;
+    try {
+      mediaPlayer.currentTime = resume;
+    } catch {
+      /* ignore */
+    }
+  }, [canPlay, initialProgress, mediaPlayer, lessonId, duration]);
+
+  // Heal wrong/missing `lesson.duration` once we know the real media length.
+  useEffect(() => {
+    if (!lessonId || syncedDuration.current) return;
+    const mediaDur = Math.round(Number(duration) || 0);
+    if (!Number.isFinite(mediaDur) || mediaDur < 3) return;
+    const prev = storedDuration || 0;
+    const needs =
+      prev <= 0 || Math.abs(prev - mediaDur) / Math.max(mediaDur, 1) > 0.05;
+    if (!needs) {
+      syncedDuration.current = true;
+      return;
+    }
+    syncedDuration.current = true;
+    void fetch(`/api/lessons/${lessonId}/duration`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ duration: mediaDur }),
+    }).catch(() => {
+      syncedDuration.current = false;
+    });
+  }, [duration, lessonId, storedDuration]);
 
   useEffect(() => {
-    if (!onProgress || !Number.isFinite(currentTime)) return;
+    const report = onProgressRef.current;
+    if (!report || !Number.isFinite(currentTime)) return;
     const seconds = Math.floor(currentTime);
     const nearEnd = duration > 0 && currentTime / duration >= 0.9;
+    const markDone = (ended || nearEnd) && !completedSent.current;
     const shouldSave =
       ended ||
+      markDone ||
       (!paused && Math.abs(seconds - lastSaved.current) >= 5) ||
       (paused && Math.abs(seconds - lastSaved.current) >= 2);
 
-    if (!shouldSave && !ended) return;
+    if (!shouldSave) return;
     lastSaved.current = seconds;
-    onProgress(seconds, Boolean(ended || nearEnd));
-  }, [currentTime, duration, paused, ended, onProgress]);
+    if (markDone) completedSent.current = true;
+    report(seconds, markDone);
+  }, [currentTime, duration, paused, ended]);
+
+  useEffect(() => {
+    if (!ended || !onEndedRef.current || endedFired.current) return;
+    endedFired.current = true;
+    onEndedRef.current();
+  }, [ended]);
 
   return null;
 }
 
-function onProviderChange(provider: MediaProviderAdapter | null) {
-  if (isYouTubeProvider(provider)) {
-    // Prefer English UI / caption preference when YouTube exposes CC tracks.
-    provider.language = "en";
-  }
-}
-
-/**
- * Unified LMS player — YouTube / Vimeo / FILE share one Vidstack UI.
- */
-export function LmsMediaPlayer({
-  videoProvider,
-  videoSrc,
+function VidstackPlayer({
+  src,
   title = "Video",
   lessonId,
   initialProgress = 0,
+  storedDuration = 0,
+  playerId = "veolms-learn-player",
   onProgress,
+  onEnded,
   autoPlay = false,
   className,
   active = true,
   showControls = true,
   captionTracks = [],
-}: LmsMediaPlayerProps) {
+}: {
+  src: string;
+  title?: string;
+  lessonId?: string;
+  initialProgress?: number;
+  storedDuration?: number;
+  playerId?: string;
+  onProgress?: (seconds: number, completed: boolean) => void;
+  onEnded?: () => void;
+  autoPlay?: boolean;
+  className?: string;
+  active?: boolean;
+  showControls?: boolean;
+  captionTracks?: CaptionTrack[];
+}) {
   const playerRef = useRef<MediaPlayerInstance>(null);
   const activeRef = useRef(active);
   activeRef.current = active;
-  const source = resolveLmsMediaSource({
-    videoProvider,
-    videoSrc,
-  });
+  /** Stable src applied after a short silence — avoids hard provider teardown races. */
+  const [stableSrc, setStableSrc] = useState(src);
 
   useEffect(() => {
     installVidstackDestroyGuard();
     repairPlayerMutePref();
+  }, []);
+
+  useEffect(() => {
+    if (src === stableSrc) return;
+    const player = playerRef.current;
+    if (player) silencePlayer(player);
+    const t = window.setTimeout(() => setStableSrc(src), 180);
+    return () => window.clearTimeout(t);
+  }, [src, stableSrc]);
+
+  useEffect(() => {
+    return () => {
+      const player = playerRef.current;
+      if (player) silencePlayer(player);
+    };
   }, []);
 
   useLayoutEffect(() => {
@@ -167,7 +255,6 @@ export function LmsMediaPlayer({
       return;
     }
 
-    // Unmute for visible playback; volume/speed come from prefs (not forced).
     withSuppressedPlayerPrefs(() => {
       try {
         player.muted = false;
@@ -177,16 +264,93 @@ export function LmsMediaPlayer({
     });
 
     if (!autoPlay) return;
-
     void player
       .play()
       .then(() => {
         if (!activeRef.current) silencePlayer(player);
       })
       .catch(() => {
-        /* autoplay may be blocked */
+        /* autoplay blocked / provider swap */
       });
-  }, [active, autoPlay]);
+  }, [active, autoPlay, stableSrc]);
+
+  return (
+    <div
+      className={cn(
+        "lms-media-player overflow-hidden rounded-xl bg-black",
+        !showControls &&
+          "[&_.vds-controls]:hidden [&_.vds-controls-group]:hidden",
+        className
+      )}
+    >
+      <MediaPlayer
+        id={playerId}
+        ref={playerRef}
+        className="h-full w-full font-sans outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+        title={title}
+        src={stableSrc}
+        aspectRatio="16/9"
+        playsInline
+        autoPlay={autoPlay && active}
+        load="eager"
+        crossOrigin=""
+        storage={veoPlayerPrefsStorage}
+        keyTarget="player"
+        keyShortcuts={LMS_KEY_SHORTCUTS}
+        tabIndex={0}
+      >
+        <MediaProvider>
+          {captionTracks.map((track) => (
+            <Track
+              key={`${track.language}-${track.src}`}
+              kind={track.kind ?? "subtitles"}
+              src={track.src}
+              label={track.label}
+              language={track.language}
+              default={track.default}
+            />
+          ))}
+        </MediaProvider>
+        {(initialProgress > 0 ||
+          onProgress ||
+          onEnded ||
+          (lessonId && storedDuration != null)) && (
+          <ResumeAndSave
+            lessonId={lessonId}
+            initialProgress={initialProgress}
+            storedDuration={storedDuration}
+            onProgress={onProgress}
+            onEnded={onEnded}
+          />
+        )}
+        {showControls ? (
+          <DefaultVideoLayout icons={defaultLayoutIcons} colorScheme="dark" />
+        ) : null}
+      </MediaPlayer>
+    </div>
+  );
+}
+
+/** Unified entry — YouTube, Vimeo, and FILE all use Vidstack. */
+export function LmsMediaPlayer(props: LmsMediaPlayerProps) {
+  const {
+    videoProvider,
+    videoSrc,
+    title,
+    lessonId,
+    initialProgress,
+    storedDuration,
+    playerId,
+    onProgress,
+    onEnded,
+    autoPlay,
+    className,
+    active,
+    showControls,
+    captionTracks,
+  } = props;
+
+  const source = resolveLmsMediaSource({ videoProvider, videoSrc });
 
   if (!source) {
     return (
@@ -202,58 +366,20 @@ export function LmsMediaPlayer({
   }
 
   return (
-    <div
-      className={cn(
-        "lms-media-player overflow-hidden rounded-xl bg-black",
-        !showControls && "[&_.vds-controls]:hidden [&_.vds-controls-group]:hidden",
-        className
-      )}
-    >
-      <MediaPlayer
-        key={`${lessonId ?? "promo"}-${source.src}`}
-        id="veolms-player"
-        ref={playerRef}
-        className="h-full w-full font-sans outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-        title={title}
-        src={source.src}
-        aspectRatio="16/9"
-        playsInline
-        autoPlay={autoPlay && active}
-        load="visible"
-        crossOrigin={source.kind === "file" ? "" : undefined}
-        storage={veoPlayerPrefsStorage}
-        keyTarget="player"
-        keyShortcuts={LMS_KEY_SHORTCUTS}
-        onProviderChange={onProviderChange}
-        tabIndex={0}
-      >
-        <MediaProvider>
-          {captionTracks.map((track) => (
-            <Track
-              key={`${track.language}-${track.src}`}
-              kind={track.kind ?? "subtitles"}
-              src={track.src}
-              label={track.label}
-              language={track.language}
-              default={track.default}
-            />
-          ))}
-        </MediaProvider>
-        {(initialProgress > 0 || onProgress) && (
-          <ResumeAndSave
-            initialProgress={initialProgress}
-            onProgress={onProgress}
-          />
-        )}
-        {showControls ? (
-          <DefaultVideoLayout
-            icons={defaultLayoutIcons}
-            colorScheme="dark"
-            // Quality / PiP / Cast only appear when the active provider supports them.
-            // YouTube iframe: quality + PiP + Google Cast are owned by YouTube — not exposed here.
-          />
-        ) : null}
-      </MediaPlayer>
-    </div>
+    <VidstackPlayer
+      src={source.src}
+      title={title}
+      lessonId={lessonId}
+      initialProgress={initialProgress}
+      storedDuration={storedDuration}
+      playerId={playerId}
+      onProgress={onProgress}
+      onEnded={onEnded}
+      autoPlay={autoPlay}
+      className={className}
+      active={active}
+      showControls={showControls}
+      captionTracks={captionTracks}
+    />
   );
 }

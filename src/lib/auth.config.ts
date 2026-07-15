@@ -5,6 +5,8 @@ import type { NextAuthConfig } from "next-auth";
  * Used by middleware so the Edge Function stays under Vercel size limits.
  */
 export const authConfig = {
+  // Behind Vercel / local proxies; same as AUTH_TRUST_HOST=true.
+  trustHost: true,
   session: { strategy: "jwt", maxAge: 24 * 60 * 60 },
   pages: {
     signIn: "/login",

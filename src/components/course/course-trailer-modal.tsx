@@ -104,6 +104,7 @@ export function CourseTrailerModal({
             videoProvider={videoProvider}
             videoSrc={videoSrc}
             title={title}
+            playerId="veolms-trailer-player"
             autoPlay={open}
             active={open}
             showControls={open}

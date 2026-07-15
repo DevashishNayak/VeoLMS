@@ -988,6 +988,10 @@ export default function AdminCourseDetailPage() {
                 onSrcChange={(videoSrc) =>
                   setLessonForm({ ...lessonForm, videoSrc })
                 }
+                durationSeconds={lessonForm.duration}
+                onDurationChange={(duration) =>
+                  setLessonForm({ ...lessonForm, duration })
+                }
               />
               <div>
                 <Label>Notes (optional markdown)</Label>

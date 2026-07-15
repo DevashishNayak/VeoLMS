@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { lessonSchema } from "@/lib/validations";
 import { normalizeVideoInput } from "@/lib/media-src";
+import { resolveVideoDurationSeconds } from "@/lib/video-duration";
 import {
   assertCanManageSection,
   coursesOwnedWhere,
@@ -140,6 +141,15 @@ export async function POST(request: Request) {
     src = normalized.videoSrc;
   }
 
+  let resolvedDuration = duration ?? 0;
+  if (type === "VIDEO" && provider && src && (!resolvedDuration || resolvedDuration <= 0)) {
+    const fetched = await resolveVideoDurationSeconds({
+      provider,
+      src,
+    });
+    if (fetched) resolvedDuration = fetched;
+  }
+
   const lesson = await prisma.lesson.create({
     data: {
       sectionId,
@@ -150,7 +160,7 @@ export async function POST(request: Request) {
       content: content || null,
       pdfUrl: pdfUrl || null,
       description: description ?? null,
-      duration: duration ?? 0,
+      duration: resolvedDuration,
       order: nextOrder,
       isPreview: isPreview ?? false,
       resources: resources?.length

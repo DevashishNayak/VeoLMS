@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { lessonSchema } from "@/lib/validations";
 import { normalizeVideoInput } from "@/lib/media-src";
+import { resolveVideoDurationSeconds } from "@/lib/video-duration";
 import {
   assertCanManageLesson,
   assertCanManageSection,
@@ -75,6 +76,16 @@ export async function PUT(
       }
       data.videoProvider = normalized.videoProvider;
       data.videoSrc = normalized.videoSrc;
+
+      const explicitDuration =
+        typeof rest.duration === "number" ? rest.duration : undefined;
+      if (!explicitDuration || explicitDuration <= 0) {
+        const fetched = await resolveVideoDurationSeconds({
+          provider: normalized.videoProvider,
+          src: normalized.videoSrc,
+        });
+        if (fetched) data.duration = fetched;
+      }
     }
   }
 

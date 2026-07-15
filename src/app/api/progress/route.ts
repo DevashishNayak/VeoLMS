@@ -25,6 +25,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // Only write `completed` when the client sends it — scrubbing a video
+    // must not clear a prior completion.
+    const completedPatch =
+      parsed.data.completed === undefined
+        ? {}
+        : { completed: parsed.data.completed };
+
     const progress = await prisma.lessonProgress.upsert({
       where: {
         userId_lessonId: {
@@ -40,7 +47,7 @@ export async function POST(request: Request) {
       },
       update: {
         watchedSeconds: parsed.data.watchedSeconds,
-        completed: parsed.data.completed,
+        ...completedPatch,
         lastWatchedAt: new Date(),
       },
     });

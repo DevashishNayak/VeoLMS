@@ -467,6 +467,8 @@ function AdminLessonsPageInner() {
                   setForm({ ...form, videoProvider })
                 }
                 onSrcChange={(videoSrc) => setForm({ ...form, videoSrc })}
+                durationSeconds={form.duration}
+                onDurationChange={(duration) => setForm({ ...form, duration })}
               />
               <div>
                 <Label>Notes (optional markdown)</Label>
