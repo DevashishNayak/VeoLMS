@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import type { VideoProvider } from "@prisma/client";
@@ -28,6 +28,81 @@ import {
   writeSidebarOpenPref,
 } from "@/lib/learn-sidebar-pref";
 import { cn, formatDuration } from "@/lib/utils";
+
+/**
+ * Pin the course list under the sticky headers while scrolling, then lift it
+ * so it never paints over the site footer (CSS sticky is unreliable in this grid).
+ */
+function usePinnedCourseSidebar(
+  enabled: boolean,
+  toolbarRef: RefObject<HTMLElement | null>
+) {
+  const panelRef = useRef<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (!enabled) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    const clearPin = () => {
+      panel.style.position = "";
+      panel.style.top = "";
+      panel.style.right = "";
+      panel.style.width = "";
+      panel.style.height = "";
+      panel.style.zIndex = "";
+    };
+
+    const update = () => {
+      if (window.matchMedia("(max-width: 1023px)").matches) {
+        clearPin();
+        return;
+      }
+
+      const toolbar = toolbarRef.current;
+      const footer = document.querySelector("footer");
+      const pagePad = 16; // match grid py-4
+      const top =
+        (toolbar?.getBoundingClientRect().bottom ?? 64 + 44) + pagePad;
+
+      const maxW = 1400;
+      const sidePad = 24; // match sm:px-6
+      const right = Math.max(
+        sidePad,
+        (window.innerWidth - maxW) / 2 + sidePad
+      );
+
+      let bottomGap = pagePad;
+      if (footer) {
+        const footerTop = footer.getBoundingClientRect().top;
+        const room = window.innerHeight - footerTop;
+        if (room > 0) {
+          bottomGap = Math.max(pagePad, room + pagePad);
+        }
+      }
+
+      const height = Math.max(180, window.innerHeight - top - bottomGap);
+
+      panel.style.position = "fixed";
+      panel.style.top = `${Math.round(top)}px`;
+      panel.style.right = `${Math.round(right)}px`;
+      panel.style.width = "360px";
+      panel.style.height = `${Math.round(height)}px`;
+      panel.style.zIndex = "30";
+    };
+
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      clearPin();
+    };
+  }, [enabled, toolbarRef]);
+
+  return panelRef;
+}
 
 type LessonType = "VIDEO" | "TEXT" | "PDF";
 
@@ -171,7 +246,12 @@ export function LearnWorkspace({
   /** URL moved, RSC props not yet — show skeleton instead of old lesson. */
   const isPending = routeLessonId !== lessonId;
   const stageRef = useRef<HTMLDivElement>(null);
+  const learnToolbarRef = useRef<HTMLDivElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(initialSidebarOpen);
+  const pinnedSidebarRef = usePinnedCourseSidebar(
+    sidebarOpen,
+    learnToolbarRef
+  );
   const [sidebarHydrated, setSidebarHydrated] = useState(false);
   const [tab, setTab] = useState<TabId>("overview");
   const [completedIds, setCompletedIds] = useState(initialCompletedIds);
@@ -432,8 +512,11 @@ export function LearnWorkspace({
 
   return (
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col bg-background">
-      <div className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
+      <div
+        ref={learnToolbarRef}
+        className="sticky top-16 z-40 border-b border-border bg-card/95 backdrop-blur"
+      >
+        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
           <Link
             href={`/courses/${courseSlug}`}
             className="text-sm text-muted-foreground hover:text-foreground"
@@ -477,17 +560,19 @@ export function LearnWorkspace({
         </div>
       </div>
 
-      {/* Workspace card — continuous column divider (avoids sticky cut borders). */}
-      <div className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-4 sm:px-6">
-        <div
-          className={cn(
-            "grid gap-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm",
-            sidebarOpen
-              ? "lg:grid-cols-[minmax(0,1fr)_360px] lg:divide-x lg:divide-border"
-              : "lg:grid-cols-1"
-          )}
-        >
-        <div className="min-w-0 px-4 py-4 sm:px-6">
+      {/*
+        Course list pinned via JS (fixed + footer clamp). A spacer keeps the
+        grid track; CSS sticky alone fails when the panel stretches to row height.
+      */}
+      <div
+        className={cn(
+          "mx-auto grid w-full max-w-[1400px] flex-1 items-start gap-4 px-4 py-4 sm:px-6",
+          sidebarOpen
+            ? "lg:grid-cols-[minmax(0,1fr)_360px]"
+            : "lg:grid-cols-1"
+        )}
+      >
+        <div className="min-w-0 rounded-xl border border-border bg-card px-4 py-4 shadow-sm sm:px-6">
           {/*
             VIDEO: height capped to viewport so controls stay on-screen when the
             sidebar collapses (full-width 16:9 can otherwise overflow).
@@ -846,21 +931,29 @@ export function LearnWorkspace({
         </div>
 
         {sidebarOpen ? (
-          <div className="min-h-0 border-t border-border lg:sticky lg:top-20 lg:max-h-[calc(100dvh-5.5rem)] lg:self-start lg:overflow-y-auto lg:border-t-0">
-            <LearnSidebar
-              courseSlug={courseSlug}
-              currentLessonId={lessonId}
-              pendingLessonId={isPending ? routeLessonId : null}
-              accessibleIds={accessibleIds}
-              completedIds={completedIds}
-              progressPercent={progressPercent}
-              canToggleComplete={canMutateProgress}
-              onToggleComplete={(id, next) => void markComplete(id, next, 0)}
-              sections={sections}
+          <div className="min-h-0">
+            <div
+              className="hidden lg:block lg:h-[calc(100dvh-4rem-2.75rem-2rem)]"
+              aria-hidden
             />
+            <aside
+              ref={pinnedSidebarRef}
+              className="min-h-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+            >
+              <LearnSidebar
+                courseSlug={courseSlug}
+                currentLessonId={lessonId}
+                pendingLessonId={isPending ? routeLessonId : null}
+                accessibleIds={accessibleIds}
+                completedIds={completedIds}
+                progressPercent={progressPercent}
+                canToggleComplete={canMutateProgress}
+                onToggleComplete={(id, next) => void markComplete(id, next, 0)}
+                sections={sections}
+              />
+            </aside>
           </div>
         ) : null}
-        </div>
       </div>
     </div>
   );

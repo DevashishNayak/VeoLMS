@@ -75,7 +75,7 @@ export function LearnSidebar({
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden bg-card">
-      <div className="shrink-0 border-b border-border px-4 py-3">
+      <div className="shrink-0 border-b border-border px-4 py-2.5">
         <h2 className="text-sm font-semibold">Course content</h2>
         <div className="mt-2">
           <div className="mb-1 flex justify-between text-xs text-muted-foreground">
