@@ -36,6 +36,7 @@
     "@tanstack/react-query-persist-client": "^5.101.2",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.6.1",
+    "@vercel/speed-insights": "^2.0.0",
     "@vidstack/react": "^1.15.6",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
