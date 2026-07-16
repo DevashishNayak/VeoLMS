@@ -16,6 +16,15 @@ const schemaPath = join(root, "prisma", "schema.prisma");
 const stampPath = join(root, "scripts", ".prisma-restart");
 const scriptsDir = join(root, "scripts");
 
+/**
+ * Cursor / some shells inject empty placeholders (AUTH_SECRET="", …).
+ * Next.js never overrides existing env keys with `.env`, so Auth.js then
+ * throws MissingSecret. Drop blank values so `.env` / `.env.local` can win.
+ */
+for (const [key, value] of Object.entries(process.env)) {
+  if (value === "") delete process.env[key];
+}
+
 if (!existsSync(stampPath)) {
   writeFileSync(stampPath, "0\n");
 }

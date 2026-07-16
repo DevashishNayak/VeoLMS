@@ -209,9 +209,14 @@ export function SiteHeaderNav({
 
       <div className="flex items-center gap-1.5 md:hidden">
         {!isLoggedIn ? (
-          <Button size="sm" asChild>
-            <Link href="/register">Sign Up</Link>
-          </Button>
+          <>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/login">Login</Link>
+            </Button>
+            <Button size="sm" asChild>
+              <Link href="/register">Sign Up</Link>
+            </Button>
+          </>
         ) : (
           <UserAvatar name={userName} email={userEmail} image={userImage} />
         )}
@@ -219,7 +224,7 @@ export function SiteHeaderNav({
           type="button"
           variant="outline"
           size="sm"
-          className="h-10 w-10 px-0"
+          className="h-10 w-10 shrink-0 px-0"
           aria-expanded={open}
           aria-controls="site-mobile-menu"
           aria-label={open ? "Close menu" : "Open menu"}
@@ -290,11 +295,7 @@ export function SiteHeaderNav({
                   {loggingOut ? "Signing out…" : "Logout"}
                 </Button>
               </>
-            ) : (
-              <Link href="/login" className={mobileLinkClass} onClick={() => setOpen(false)}>
-                Login
-              </Link>
-            )}
+            ) : null}
           </nav>
         </div>
       ) : null}

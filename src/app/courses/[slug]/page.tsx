@@ -146,7 +146,7 @@ export default async function CourseDetailPage({ params }: PageProps) {
     <div className="bg-background">
       <div className="border-b border-border bg-zinc-950 text-white">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:grid lg:grid-cols-3 lg:gap-8 lg:px-8 lg:py-10">
-          <div className="lg:col-span-2">
+          <div className="min-w-0 lg:col-span-2">
             <nav
               aria-label="Breadcrumb"
               className="flex flex-wrap items-center gap-1 text-xs text-zinc-400"
@@ -256,7 +256,7 @@ export default async function CourseDetailPage({ params }: PageProps) {
       </div>
 
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 md:py-10 lg:grid-cols-3 lg:px-8">
-        <div className="order-2 space-y-10 lg:order-1 lg:col-span-2">
+        <div className="order-2 min-w-0 space-y-10 lg:order-1 lg:col-span-2">
           <section className="rounded-xl border border-border bg-card p-6">
             <h2 className="text-xl font-bold">What you’ll learn</h2>
             <ShowMoreList
@@ -350,8 +350,8 @@ export default async function CourseDetailPage({ params }: PageProps) {
           />
         </div>
 
-        <aside className="order-1 lg:order-2 lg:-mt-40 xl:-mt-48">
-          <div className="lg:sticky lg:top-20 lg:z-10">
+        <aside className="order-1 w-full min-w-0 lg:order-2 lg:-mt-40 xl:-mt-48">
+          <div className="w-full min-w-0 lg:sticky lg:top-20 lg:z-10">
             <CoursePurchaseCard {...purchaseProps} />
           </div>
         </aside>

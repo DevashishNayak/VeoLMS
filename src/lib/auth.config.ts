@@ -7,6 +7,10 @@ import type { NextAuthConfig } from "next-auth";
 export const authConfig = {
   // Behind Vercel / local proxies; same as AUTH_TRUST_HOST=true.
   trustHost: true,
+  // Only pass a real secret — empty-string env placeholders trigger MissingSecret.
+  ...(process.env.AUTH_SECRET?.trim()
+    ? { secret: process.env.AUTH_SECRET.trim() }
+    : {}),
   session: { strategy: "jwt", maxAge: 24 * 60 * 60 },
   pages: {
     signIn: "/login",

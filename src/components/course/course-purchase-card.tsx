@@ -44,9 +44,9 @@ type Props = {
   className?: string;
 };
 
-/** Shared height for price strip vs enrolled strip — avoids sticky-card jump. */
+/** Shared shell for price strip vs enrolled strip — avoids sticky-card jump. */
 const STATUS_PANEL =
-  "flex h-24 items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3.5";
+  "flex min-h-20 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-3 sm:min-h-24 sm:gap-3 sm:px-3.5";
 
 function ProgressRing({ value }: { value: number }) {
   const [shown, setShown] = useState(0);
@@ -171,8 +171,13 @@ export function CoursePurchaseCard({
 
   return (
     <>
-      <Card className={cn("overflow-hidden shadow-lg", className)}>
-        <div className="relative aspect-video bg-muted">
+      <Card
+        className={cn(
+          "w-full min-w-0 max-w-full overflow-hidden shadow-lg",
+          className
+        )}
+      >
+        <div className="relative aspect-video w-full min-w-0 bg-muted">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={thumbnail}
@@ -195,7 +200,7 @@ export function CoursePurchaseCard({
             </button>
           )}
         </div>
-        <CardContent className="space-y-4 p-5">
+        <CardContent className="min-w-0 space-y-4 p-4 sm:p-5">
           {enrolled ? (
             <div className={STATUS_PANEL}>
               <ProgressRing value={progress} />
@@ -212,8 +217,8 @@ export function CoursePurchaseCard({
             </div>
           ) : priceInPaise === 0 ? (
             <div className={cn(STATUS_PANEL, "justify-between")}>
-              <div>
-                <p className="text-3xl font-bold tracking-tight text-foreground">
+              <div className="min-w-0">
+                <p className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
                   Free
                 </p>
                 <p className="mt-0.5 text-xs font-medium text-muted-foreground">
@@ -230,9 +235,9 @@ export function CoursePurchaseCard({
               </div>
             </div>
           ) : (
-            <div className={cn(STATUS_PANEL, "justify-between")}>
-              <div>
-                <p className="text-3xl font-bold tracking-tight text-foreground">
+            <div className={cn(STATUS_PANEL, "justify-between gap-2")}>
+              <div className="min-w-0 overflow-hidden">
+                <p className="truncate text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
                   {formatPrice(priceInPaise)}
                 </p>
                 <p className="mt-0.5 text-xs font-medium text-muted-foreground">
@@ -251,7 +256,7 @@ export function CoursePurchaseCard({
           )}
 
           {/* Fixed CTA footprint so Buy now / Go to course align the same */}
-          <div className="flex min-h-11 flex-col justify-center">
+          <div className="flex min-h-11 w-full min-w-0 flex-col justify-center">
             {enrolled && resumeLessonId ? (
               <Button size="lg" className="h-11 w-full" asChild>
                 <Link href={`/learn/${courseSlug}/${resumeLessonId}`}>
@@ -284,11 +289,11 @@ export function CoursePurchaseCard({
             {accessNote}
           </p>
 
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-semibold">This course includes:</p>
             <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
               {includes.map(({ key, icon: Icon, label }) => (
-                <li key={key} className="flex h-5 items-center gap-2">
+                <li key={key} className="flex h-5 min-w-0 items-center gap-2">
                   <Icon className="h-4 w-4 shrink-0 text-foreground" />
                   <span className="truncate">{label}</span>
                 </li>
