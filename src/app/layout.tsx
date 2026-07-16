@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { Geist_Mono, Outfit } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { SessionProvider } from "@/components/providers/session-provider";
@@ -50,6 +51,7 @@ export default async function RootLayout({
           <Footer />
         </SessionProvider>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
