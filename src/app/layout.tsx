@@ -20,10 +20,42 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteName = "VeoLMS";
+const siteTitle = "VeoLMS — Learn Without Limits";
+const siteDescription =
+  "A modern learning management system. Browse courses, learn at your pace, and track your progress.";
+
+function siteUrl() {
+  const fromEnv =
+    process.env.AUTH_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : null) ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+  return fromEnv || "https://veo-lms.vercel.app";
+}
+
 export const metadata: Metadata = {
-  title: "VeoLMS — Learn Without Limits",
-  description:
-    "A modern learning management system. Browse courses, learn at your pace, and track your progress.",
+  metadataBase: new URL(siteUrl()),
+  title: {
+    default: siteTitle,
+    template: `%s · ${siteName}`,
+  },
+  description: siteDescription,
+  applicationName: siteName,
+  openGraph: {
+    type: "website",
+    siteName,
+    title: siteTitle,
+    description: siteDescription,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteTitle,
+    description: siteDescription,
+  },
 };
 
 export default async function RootLayout({
@@ -47,7 +79,9 @@ export default async function RootLayout({
         </Script>
         <SessionProvider session={session}>
           <Header />
-          <main className="flex-1">{children}</main>
+          <main id="main-content" className="flex-1">
+            {children}
+          </main>
           <Footer />
         </SessionProvider>
         <Analytics />

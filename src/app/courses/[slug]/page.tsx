@@ -220,7 +220,7 @@ export default async function CourseDetailPage({ params }: PageProps) {
                 className={
                   course.ratingCount > 0
                     ? "flex items-center gap-1.5 text-amber-300"
-                    : "flex items-center gap-1.5 text-zinc-500"
+                    : "flex items-center gap-1.5 text-zinc-400"
                 }
                 title={
                   course.ratingCount > 0

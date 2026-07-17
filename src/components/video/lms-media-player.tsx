@@ -17,6 +17,7 @@ import {
 import "@vidstack/react/player/styles/default/theme.css";
 import "@vidstack/react/player/styles/default/layouts/video.css";
 import { cn } from "@/lib/utils";
+import { isAppleTouchDevice } from "@/lib/ios";
 import { resolveLmsMediaSource } from "@/lib/media-src";
 import { installVidstackDestroyGuard } from "@/lib/vidstack-destroy-guard";
 import {
@@ -25,6 +26,7 @@ import {
   repairPlayerMutePref,
 } from "@/lib/player-prefs-storage";
 import { resumeWatchSeconds } from "@/lib/video-resume";
+import { YoutubeIosEmbed } from "@/components/video/youtube-ios-embed";
 
 /** True when Vidstack `$state` accessors are no longer callable. */
 function isPlayerStateTornDown(player: MediaPlayerInstance) {
@@ -333,7 +335,7 @@ function VidstackPlayer({
         storage={veoPlayerPrefsStorage}
         keyTarget="player"
         keyShortcuts={LMS_KEY_SHORTCUTS}
-        tabIndex={0}
+        tabIndex={active && showControls ? 0 : -1}
       >
         <MediaProvider>
           {captionTracks.map((track) => (
@@ -367,7 +369,7 @@ function VidstackPlayer({
   );
 }
 
-/** Unified entry — YouTube, Vimeo, and FILE all use Vidstack. */
+/** Unified entry — YouTube, Vimeo, and FILE all use Vidstack (native YT on iOS). */
 export function LmsMediaPlayer(props: LmsMediaPlayerProps) {
   const {
     videoProvider,
@@ -387,6 +389,16 @@ export function LmsMediaPlayer(props: LmsMediaPlayerProps) {
   } = props;
 
   const source = resolveLmsMediaSource({ videoProvider, videoSrc });
+  /** null = deciding (YouTube only); avoid mounting Vidstack on iOS then tearing it down. */
+  const [iosYoutube, setIosYoutube] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (source?.kind !== "youtube") {
+      setIosYoutube(false);
+      return;
+    }
+    setIosYoutube(isAppleTouchDevice());
+  }, [source?.kind]);
 
   if (!source?.src) {
     return (
@@ -398,6 +410,32 @@ export function LmsMediaPlayer(props: LmsMediaPlayerProps) {
       >
         No video source configured
       </div>
+    );
+  }
+
+  if (source.kind === "youtube" && iosYoutube === null) {
+    return (
+      <div
+        className={cn(
+          "aspect-video animate-pulse rounded-xl bg-zinc-900",
+          className
+        )}
+        aria-hidden
+      />
+    );
+  }
+
+  // iPhone/iPad Safari: Vidstack YouTube often never starts — use native embed.
+  if (iosYoutube && source.kind === "youtube") {
+    return (
+      <YoutubeIosEmbed
+        videoId={source.id}
+        title={title}
+        className={className}
+        initialProgress={initialProgress}
+        onProgress={onProgress}
+        onEnded={onEnded}
+      />
     );
   }
 

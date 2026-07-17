@@ -35,6 +35,7 @@ export function LearnSidebar({
   progressPercent,
   onToggleComplete,
   canToggleComplete,
+  onNavigate,
 }: {
   courseSlug: string;
   sections: SectionRow[];
@@ -47,6 +48,8 @@ export function LearnSidebar({
   /** Udemy-style checkbox — toggle completion without navigating. */
   onToggleComplete?: (lessonId: string, completed: boolean) => void;
   canToggleComplete?: boolean;
+  /** Called when the learner opens a lecture (e.g. close the mobile drawer). */
+  onNavigate?: () => void;
 }) {
   const router = useRouter();
   const accessible = useMemo(() => new Set(accessibleIds), [accessibleIds]);
@@ -75,9 +78,9 @@ export function LearnSidebar({
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden bg-card">
-      <div className="shrink-0 border-b border-border px-4 py-2.5">
-        <h2 className="text-sm font-semibold">Course content</h2>
-        <div className="mt-2">
+      <div className="shrink-0 border-b border-border px-4 py-2.5 lg:block">
+        <h2 className="hidden text-sm font-semibold lg:block">Course content</h2>
+        <div className="mt-0 lg:mt-2">
           <div className="mb-1 flex justify-between text-xs text-muted-foreground">
             <span>{progressPercent}% complete</span>
             <span>
@@ -188,6 +191,9 @@ export function LearnSidebar({
                         prefetch
                         onMouseEnter={() => {
                           if (can) router.prefetch(href);
+                        }}
+                        onClick={() => {
+                          if (can) onNavigate?.();
                         }}
                         className={cn(
                           "min-w-0 flex-1 leading-snug hover:underline",

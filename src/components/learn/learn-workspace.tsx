@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Download,
   FileText,
+  ListVideo,
   PanelRightClose,
   PanelRightOpen,
   Share2,
@@ -126,7 +127,7 @@ type TabId = "overview" | "resources" | "notes" | "review";
 
 /** PDF keeps a tall consistent viewer; TEXT is dynamic (paper), not forced empty height. */
 const STAGE_PDF =
-  "relative flex h-[min(70vh,720px)] max-h-[calc(100dvh-10rem)] flex-col overflow-hidden rounded-xl border border-border bg-card";
+  "relative flex h-[min(70vh,720px)] max-h-[calc(100dvh-12rem)] flex-col overflow-hidden rounded-xl border border-border bg-card";
 
 const mdClass =
   "text-sm leading-relaxed text-foreground [&_a]:text-emerald-700 [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:mt-4 [&_h2]:text-xl [&_h2]:font-semibold [&_li]:ml-4 [&_li]:list-disc [&_p]:mb-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_ul]:mb-3";
@@ -135,7 +136,7 @@ function noteStorageKey(lessonId: string) {
   return `veolms:lesson-notes:${lessonId}`;
 }
 
-/** Udemy-style stage chevrons — mid of the lecture stage, reveal on hover. */
+/** Desktop stage chevrons — mid of the lecture stage, reveal on hover. Hidden on phones so they never cover video/PDF. */
 function StageNavButton({
   href,
   side,
@@ -158,11 +159,11 @@ function StageNavButton({
           : `Next lecture${titleAttr ? `: ${titleAttr}` : ""}`
       }
       className={cn(
-        "absolute top-1/2 z-20 flex -translate-y-1/2 items-center gap-1 rounded-full",
+        "absolute top-1/2 z-20 hidden -translate-y-1/2 items-center gap-1 rounded-full sm:flex",
         "border border-border bg-card/95 px-2.5 py-2 text-xs font-semibold text-foreground",
         "shadow-md backdrop-blur-sm transition hover:bg-card",
         isLeft ? "left-2 sm:left-3" : "right-2 sm:right-3",
-        "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100",
+        "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       )}
     >
@@ -306,6 +307,18 @@ export function LearnWorkspace({
     setSidebarHydrated(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-time migrate
   }, []);
+
+  // Lock background scroll while the mobile curriculum drawer is open.
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const mobile = window.matchMedia("(max-width: 1023px)").matches;
+    if (!mobile) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [sidebarOpen]);
 
   // When the list is hidden, the player gets wider/taller — keep it in the viewport.
   useEffect(() => {
@@ -522,18 +535,21 @@ export function LearnWorkspace({
         ref={learnToolbarRef}
         className="sticky top-16 z-40 border-b border-border bg-card/95 backdrop-blur"
       >
-        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-2 px-4 py-2.5 sm:gap-3 sm:px-6">
+        {/* Desktop: single row (← Course / Section · Lecture · Share · Content) */}
+        <div className="mx-auto hidden max-w-[1400px] items-center gap-3 px-4 py-2.5 sm:px-6 lg:flex">
           <Link
             href={`/courses/${courseSlug}`}
-            className="min-w-0 max-w-[45%] truncate text-sm text-muted-foreground hover:text-foreground sm:max-w-xs"
+            className="min-w-0 max-w-xs truncate text-sm text-muted-foreground hover:text-foreground"
           >
             ← {courseTitle}
           </Link>
-          <span className="hidden text-muted-foreground sm:inline">/</span>
+          <span className="text-muted-foreground" aria-hidden>
+            /
+          </span>
           <span className="min-w-0 flex-1 truncate text-sm font-medium">
             {sectionTitle}
           </span>
-          <span className="hidden text-xs tabular-nums text-muted-foreground sm:inline">
+          <span className="text-xs tabular-nums text-muted-foreground">
             Lecture {lessonIndex + 1} of {lessonTotal}
           </span>
           <button
@@ -555,6 +571,7 @@ export function LearnWorkspace({
             }}
             className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-muted"
             aria-pressed={sidebarOpen}
+            aria-label={sidebarOpen ? "Hide course content" : "Show course content"}
           >
             {sidebarOpen ? (
               <PanelRightClose className="h-4 w-4" />
@@ -563,6 +580,56 @@ export function LearnWorkspace({
             )}
             Content
           </button>
+        </div>
+
+        {/* Mobile / tablet: breadcrumb row, then Share + Contents */}
+        <div className="mx-auto max-w-[1400px] px-4 py-2 sm:px-6 lg:hidden">
+          <nav
+            aria-label="Lesson location"
+            className="flex min-w-0 items-center gap-1.5 text-sm"
+          >
+            <Link
+              href={`/courses/${courseSlug}`}
+              className="min-w-0 max-w-[42%] truncate text-muted-foreground hover:text-foreground"
+            >
+              {courseTitle}
+            </Link>
+            <span className="shrink-0 text-muted-foreground" aria-hidden>
+              /
+            </span>
+            <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+              {sectionTitle}
+            </span>
+          </nav>
+          <div className="mt-1.5 flex items-center gap-2">
+            <span className="mr-auto text-xs tabular-nums text-muted-foreground">
+              Lecture {lessonIndex + 1} of {lessonTotal}
+            </span>
+            <button
+              type="button"
+              onClick={() => void shareLesson()}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <Share2 className="h-4 w-4" />
+              {shareToast ? "Copied" : "Share"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSidebarOpen((v) => {
+                  const next = !v;
+                  writeSidebarOpenPref(next);
+                  return next;
+                });
+              }}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-sm font-medium hover:bg-muted"
+              aria-pressed={sidebarOpen}
+              aria-label={sidebarOpen ? "Hide course content" : "Show course content"}
+            >
+              <ListVideo className="h-4 w-4" />
+              Contents
+            </button>
+          </div>
         </div>
       </div>
 
@@ -578,7 +645,7 @@ export function LearnWorkspace({
             : "lg:grid-cols-1"
         )}
       >
-        <div className="min-w-0 rounded-xl border border-border bg-card px-4 py-4 shadow-sm sm:px-6">
+        <div className="min-w-0 overflow-x-hidden rounded-xl border border-border bg-card px-3 py-3 shadow-sm sm:px-6 sm:py-4">
           {/*
             VIDEO: height capped to viewport so controls stay on-screen when the
             sidebar collapses (full-width 16:9 can otherwise overflow).
@@ -606,8 +673,8 @@ export function LearnWorkspace({
                 className="relative w-full"
                 style={{
                   aspectRatio: "16 / 9",
-                  maxHeight: "calc(100dvh - 10rem)",
-                  maxWidth: "min(100%, calc((100dvh - 10rem) * 16 / 9))",
+                  maxHeight: "calc(100dvh - 12rem)",
+                  maxWidth: "min(100%, calc((100dvh - 12rem) * 16 / 9))",
                 }}
               >
                 <div
@@ -615,7 +682,9 @@ export function LearnWorkspace({
                     "h-full w-full",
                     isPending && "pointer-events-none invisible absolute inset-0"
                   )}
-                  aria-hidden={isPending}
+                  // Soft-hold keeps the player mounted; inert avoids aria-hidden+focus violations.
+                  inert={isPending ? true : undefined}
+                  aria-hidden={isPending || undefined}
                 >
                   <LmsMediaPlayer
                     videoProvider={videoProvider}
@@ -650,12 +719,12 @@ export function LearnWorkspace({
 
             {!isPending && type === "PDF" && pdfUrl ? (
               <>
-                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-2">
-                  <p className="flex items-center gap-2 text-sm font-medium">
-                    <FileText className="h-4 w-4" />
-                    PDF lecture
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2 sm:px-4">
+                  <p className="flex min-w-0 items-center gap-2 text-sm font-medium">
+                    <FileText className="h-4 w-4 shrink-0" />
+                    <span className="truncate">PDF lecture</span>
                   </p>
-                  <Button asChild size="sm" variant="outline">
+                  <Button asChild size="sm" variant="outline" className="shrink-0">
                     <a
                       href={pdfUrl}
                       target="_blank"
@@ -667,15 +736,40 @@ export function LearnWorkspace({
                       }}
                     >
                       <Download className="h-4 w-4" />
-                      Open PDF
+                      <span className="sm:hidden">Open</span>
+                      <span className="hidden sm:inline">Open PDF</span>
                     </a>
                   </Button>
                 </div>
-                <iframe
-                  title={title}
-                  src={`${pdfUrl}#toolbar=1`}
-                  className="min-h-0 w-full flex-1 bg-muted"
-                />
+                {/* iOS Safari often blanks PDF iframes — keep Open as primary on small screens */}
+                <div className="flex min-h-0 flex-1 flex-col bg-muted">
+                  <iframe
+                    title={title}
+                    src={`${pdfUrl}#toolbar=1`}
+                    className="hidden min-h-0 w-full flex-1 sm:block"
+                  />
+                  <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-10 text-center sm:hidden">
+                    <FileText className="h-10 w-10 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      Open the PDF in a new tab for the best experience on mobile.
+                    </p>
+                    <Button asChild size="lg" className="w-full max-w-xs">
+                      <a
+                        href={pdfUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          if (canMutateProgress && !completed) {
+                            void markComplete(lessonId, true, 0);
+                          }
+                        }}
+                      >
+                        <Download className="h-4 w-4" />
+                        Open PDF
+                      </a>
+                    </Button>
+                  </div>
+                </div>
               </>
             ) : null}
 
@@ -686,7 +780,7 @@ export function LearnWorkspace({
                     Reading
                   </span>
                   {duration > 0 ? (
-                    <span className="text-[11px] text-zinc-500">
+                    <span className="text-[11px] text-zinc-600">
                       {formatDuration(duration)}
                     </span>
                   ) : null}
@@ -722,6 +816,32 @@ export function LearnWorkspace({
             ) : null}
           </div>
 
+          {/* Mobile lecture nav — below the stage so it never covers media */}
+          {!isPending && (prevHref || nextHref) ? (
+            <div className="mt-3 flex gap-2 sm:hidden">
+              {prevHref ? (
+                <Button asChild variant="outline" size="sm" className="h-10 min-w-0 flex-1">
+                  <Link href={prevHref} className="gap-1 truncate">
+                    <ChevronLeft className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{prevLesson?.title ?? "Previous"}</span>
+                  </Link>
+                </Button>
+              ) : null}
+              {nextHref ? (
+                <Button asChild size="sm" className="h-10 min-w-0 flex-1">
+                  <Link
+                    href={nextHref}
+                    className="gap-1 truncate"
+                    onClick={() => setAutoPlay(true)}
+                  >
+                    <span className="truncate">{nextLesson?.title ?? "Next"}</span>
+                    <ChevronRight className="h-4 w-4 shrink-0" />
+                  </Link>
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+
           {advanceIn != null && nextAdvanceHref && nextLesson ? (
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
               <p className="text-emerald-900">
@@ -750,7 +870,7 @@ export function LearnWorkspace({
               </div>
             </div>
           ) : (
-            <p className="mt-2 text-xs text-muted-foreground">
+            <p className="mt-2 hidden text-xs text-muted-foreground sm:block">
               {type === "VIDEO" && hasVideo ? (
                 <>
                   Shortcuts:{" "}
@@ -805,7 +925,7 @@ export function LearnWorkspace({
             )}
           >
             <nav
-              className="-mb-px flex flex-wrap gap-1"
+              className="-mb-px flex gap-1 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               aria-label="Lesson panels"
             >
               {tabs.map((t) => (
@@ -814,7 +934,7 @@ export function LearnWorkspace({
                   type="button"
                   onClick={() => setTab(t.id)}
                   className={cn(
-                    "inline-flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors",
+                    "inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors",
                     tab === t.id
                       ? "border-emerald-700 text-foreground"
                       : "border-transparent text-muted-foreground hover:text-foreground"
@@ -973,8 +1093,8 @@ export function LearnWorkspace({
                   writeSidebarOpenPref(false);
                 }}
               />
-              <aside className="absolute inset-y-0 right-0 flex w-[min(100%,22rem)] flex-col overflow-hidden border-l border-border bg-card shadow-xl">
-                <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
+              <aside className="absolute inset-y-0 right-0 flex w-[min(100%,22rem)] flex-col overflow-hidden border-l border-border bg-card pb-[env(safe-area-inset-bottom)] shadow-xl">
+                <div className="flex items-center justify-between border-b border-border px-3 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))]">
                   <p className="text-sm font-semibold">Course content</p>
                   <button
                     type="button"
@@ -988,7 +1108,7 @@ export function LearnWorkspace({
                     <PanelRightClose className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="min-h-0 flex-1 overflow-y-auto">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                   <LearnSidebar
                     courseSlug={courseSlug}
                     currentLessonId={lessonId}
@@ -999,6 +1119,10 @@ export function LearnWorkspace({
                     canToggleComplete={canMutateProgress}
                     onToggleComplete={(id, next) => void markComplete(id, next, 0)}
                     sections={sections}
+                    onNavigate={() => {
+                      setSidebarOpen(false);
+                      writeSidebarOpenPref(false);
+                    }}
                   />
                 </div>
               </aside>

@@ -63,6 +63,9 @@ export function CourseTrailerModal({
         "fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-6",
         !open && "hidden"
       )}
+      // When closed the player stays mounted — inert removes it from the a11y/focus tree
+      // (aria-hidden alone still flags focusable descendants like media-player).
+      inert={!open ? true : undefined}
       aria-hidden={!open}
     >
       <button

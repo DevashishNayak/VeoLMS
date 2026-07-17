@@ -317,9 +317,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <AdminBreadcrumbs />
           </div>
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 pb-8 sm:p-6 sm:pb-10">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-8 sm:p-6 sm:pb-10">
           {children}
-        </main>
+        </div>
       </div>
     </div>
   );
