@@ -136,7 +136,7 @@ export default async function HomePage() {
             .
           </p>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {featured.map((course) => (
               <CourseCard key={course.id} course={course} />
             ))}
@@ -169,7 +169,7 @@ export default async function HomePage() {
               Courses will appear here once published.
             </p>
           ) : (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {catalog.map((course) => (
                 <CourseCard
                   key={course.id}

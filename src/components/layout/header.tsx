@@ -14,12 +14,15 @@ export async function Header() {
       <div className="mx-auto grid h-16 max-w-7xl grid-cols-[1fr_auto] items-center gap-4 px-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] md:gap-8 lg:px-8">
         <Link
           href="/"
+          aria-label="VeoLMS home"
           className="flex shrink-0 items-center gap-2 justify-self-start font-bold text-foreground"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
-            <GraduationCap className="h-5 w-5" />
+            <GraduationCap className="h-5 w-5" aria-hidden />
           </span>
-          <span className="hidden sm:inline">VeoLMS</span>
+          <span className="hidden sm:inline" aria-hidden>
+            VeoLMS
+          </span>
         </Link>
 
         <div className="hidden min-w-0 md:flex md:justify-center">

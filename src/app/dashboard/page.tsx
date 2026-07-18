@@ -5,6 +5,7 @@ import { getCourseProgress } from "@/lib/access";
 import { formatDuration } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CourseThumbnail } from "@/components/course/course-thumbnail";
 import { BookOpen, Clock, Play } from "lucide-react";
 import { redirect } from "next/navigation";
 
@@ -96,45 +97,56 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {coursesWithProgress.map(({ course, progress, lessonCount }) => {
               const firstLesson = course.sections
                 .flatMap((s) => s.lessons)
                 .sort((a, b) => a.order - b.order)[0];
               return (
-                <Card key={course.id} className="overflow-hidden">
-                  <div className="relative aspect-video bg-muted">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                <Card
+                  key={course.id}
+                  className="flex h-full flex-col overflow-hidden"
+                >
+                  <div className="relative aspect-video shrink-0 bg-muted">
+                    <CourseThumbnail
                       src={course.thumbnail}
                       alt={course.title}
-                      className="h-full w-full object-cover"
+                      sourceWidth={800}
+                      sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                     />
                   </div>
-                  <CardContent className="p-4">
-                    <h3 className="font-semibold line-clamp-2">{course.title}</h3>
-                    <p className="mt-1 text-sm text-slate-500">
+                  <CardContent className="flex flex-1 flex-col p-4">
+                    {/* One-line title everywhere — long names truncate; hover shows full title */}
+                    <h3
+                      className="truncate text-base font-semibold leading-snug tracking-tight"
+                      title={course.title}
+                    >
+                      {course.title}
+                    </h3>
+                    <p className="mt-1 truncate text-sm text-muted-foreground">
                       {course.instructor.name}
                     </p>
                     <div className="mt-3">
-                      <div className="flex justify-between text-xs text-slate-500">
+                      <div className="flex justify-between text-xs text-muted-foreground">
                         <span>{progress}% complete</span>
                         <span>{lessonCount} lessons</span>
                       </div>
-                      <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
+                      <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
                         <div
                           className="h-full bg-primary transition-all"
                           style={{ width: `${progress}%` }}
                         />
                       </div>
                     </div>
-                    {firstLesson && (
-                      <Button className="mt-4 w-full" size="sm" asChild>
-                        <Link href={`/learn/${course.slug}/${firstLesson.id}`}>
-                          {progress > 0 ? "Continue" : "Start"}
-                        </Link>
-                      </Button>
-                    )}
+                    {firstLesson ? (
+                      <div className="mt-auto pt-4">
+                        <Button className="w-full" size="sm" asChild>
+                          <Link href={`/learn/${course.slug}/${firstLesson.id}`}>
+                            {progress > 0 ? "Continue" : "Start"}
+                          </Link>
+                        </Button>
+                      </div>
+                    ) : null}
                   </CardContent>
                 </Card>
               );

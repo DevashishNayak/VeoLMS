@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckoutButton } from "@/components/payment/checkout-button";
 import { CourseTrailerModal } from "@/components/course/course-trailer-modal";
+import { CourseThumbnail } from "@/components/course/course-thumbnail";
 import type { VideoProvider } from "@prisma/client";
 import { cn, formatDuration, formatPrice } from "@/lib/utils";
 
@@ -178,11 +179,12 @@ export function CoursePurchaseCard({
         )}
       >
         <div className="relative aspect-video w-full min-w-0 bg-muted">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <CourseThumbnail
             src={thumbnail}
             alt=""
-            className="h-full w-full object-cover"
+            sourceWidth={900}
+            sizes="(max-width: 1024px) 100vw, 360px"
+            className="h-full w-full"
           />
           {canPreview && (
             <button

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight, BookOpen, Clock, Layers, Star } from "lucide-react";
+import { CourseThumbnail } from "@/components/course/course-thumbnail";
 import { formatPrice, formatDuration } from "@/lib/utils";
 
 interface CourseCardProps {
@@ -59,11 +60,12 @@ export function CourseCard({
       className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition duration-300 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-[0_16px_36px_-22px_rgba(0,0,0,0.32)]"
     >
       <div className="relative aspect-[2/1] overflow-hidden bg-muted">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <CourseThumbnail
           src={course.thumbnail}
           alt={course.title}
-          className="h-full w-full object-cover transition duration-500 ease-out group-hover:scale-[1.04]"
+          sourceWidth={800}
+          sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+          className="transition duration-500 ease-out group-hover:scale-[1.04]"
         />
         <div
           className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent"
@@ -98,12 +100,12 @@ export function CourseCard({
             {ratingCount > 0 ? (
               <>
                 {ratingAvg.toFixed(1)}
-                <span className="font-normal text-slate-500">
+                <span className="font-normal text-muted-foreground">
                   ({ratingCount})
                 </span>
               </>
             ) : (
-              <span className="text-slate-500">New</span>
+              <span className="text-muted-foreground">New</span>
             )}
           </span>
         </div>
@@ -115,14 +117,24 @@ export function CourseCard({
 
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div>
-          <h3 className="line-clamp-2 text-base font-semibold leading-snug tracking-tight text-foreground transition-colors duration-200 group-hover:text-emerald-700">
+          <h3
+            className="truncate text-base font-semibold leading-snug tracking-tight text-foreground transition-colors duration-200 group-hover:text-emerald-700"
+            title={course.title}
+          >
             {course.title}
           </h3>
           {pitch ? (
-            <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-1.5 line-clamp-2 min-h-[2.5rem] text-sm leading-relaxed text-muted-foreground">
               {pitch}
             </p>
-          ) : null}
+          ) : (
+            <p
+              className="mt-1.5 min-h-[2.5rem] text-sm leading-relaxed"
+              aria-hidden
+            >
+              &nbsp;
+            </p>
+          )}
         </div>
 
         <div className="mt-auto flex items-center gap-2.5 border-t border-border/70 pt-3">
@@ -133,26 +145,26 @@ export function CourseCard({
             <p className="truncate text-sm font-medium text-foreground">
               {course.instructor.name}
             </p>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+            <div className="mt-0.5 flex min-h-[1.125rem] flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
               {sectionCount > 0 ? (
                 <span className="inline-flex items-center gap-1">
-                  <Layers className="h-3.5 w-3.5" />
+                  <Layers className="h-3.5 w-3.5 shrink-0" />
                   {sectionCount} {sectionCount === 1 ? "section" : "sections"}
                 </span>
               ) : null}
               <span className="inline-flex items-center gap-1">
-                <BookOpen className="h-3.5 w-3.5" />
+                <BookOpen className="h-3.5 w-3.5 shrink-0" />
                 {lessonCount} {lessonCount === 1 ? "lesson" : "lessons"}
               </span>
               {duration > 0 ? (
                 <span className="inline-flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" />
+                  <Clock className="h-3.5 w-3.5 shrink-0" />
                   {formatCourseDuration(duration)}
                 </span>
               ) : null}
             </div>
           </div>
-          <span className="shrink-0 rounded-md bg-primary/25 px-2.5 py-1 text-sm font-bold text-emerald-800 transition duration-200 group-hover:bg-primary/40">
+          <span className="shrink-0 self-center rounded-md bg-primary/25 px-2.5 py-1 text-sm font-bold text-emerald-800 transition duration-200 group-hover:bg-primary/40">
             {isFree ? "Free" : formatPrice(course.priceInPaise)}
           </span>
         </div>

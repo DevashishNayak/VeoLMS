@@ -96,7 +96,7 @@ export default async function InstructorPage({ params }: PageProps) {
       {courses.length === 0 ? (
         <p className="mt-4 text-muted-foreground">No published courses yet.</p>
       ) : (
-        <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {courses.map((course) => (
             <CourseCard
               key={course.id}
